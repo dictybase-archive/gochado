@@ -1,7 +1,11 @@
 package gochado
 
 import (
+    "bytes"
     "github.com/jmoiron/sqlx"
+    "io"
+    "io/ioutil"
+    "log"
     "strings"
     "sync"
 )
@@ -231,4 +235,69 @@ func (helper *ChadoHelper) NormaLizeId(dbxref string) (int, string, error) {
         return 0, "", err
     }
     return dbid, dbxref, nil
+}
+
+// A type for managing data from ini style config file where each block holds
+// a sql statement
+type SqlINI struct {
+    content map[string]string
+}
+
+func NewSqlINIFromFile(file string) *SqlINI {
+    c, err := ioutil.ReadFile(file)
+    if err != nil {
+        log.Fatal(err)
+    }
+    buffer := bytes.NewBuffer(c)
+
+    var curr string
+    var b bytes.Buffer
+    content := make(map[string]string)
+
+    for {
+        line, err := buffer.ReadString('\n')
+        if err == io.EOF {
+            content[curr] = b.String() + line
+            break
+        }
+        if strings.HasPrefix(line, "\n") {
+            continue
+        }
+        // skip comment
+        if strings.HasPrefix(line, "#") || strings.HasPrefix(line, ";") {
+            continue
+        }
+        if strings.HasPrefix(line, "[") && strings.HasSuffix(line, "]\n") {
+            key := line[1 : len(line)-2]
+            if _, ok := content[key]; ok {
+                log.Fatal("duplicate keys not allowd")
+            } else {
+                if len(curr) == 0 { //first block
+                    curr = key
+                } else {
+                    content[curr] = b.String()
+                    curr = key
+                    b.Reset()
+                }
+            }
+        } else {
+            b.WriteString(line)
+        }
+    }
+    return &SqlINI{content: content}
+}
+
+func (ini *SqlINI) Sections() []string {
+    var s []string
+    for k, _ := range ini.content {
+        s = append(s, k)
+    }
+    return s
+}
+
+func (ini *SqlINI) GetSection(key string) string {
+    if _, ok := ini.content[key]; ok {
+        return ini.content[key]
+    }
+    return ""
 }
