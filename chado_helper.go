@@ -237,21 +237,38 @@ func (helper *ChadoHelper) NormaLizeId(dbxref string) (int, string, error) {
     return dbid, dbxref, nil
 }
 
-// Parsing data from ini style config file. Here is ini section expects
+// Parsing sql statements from ini style config file. Each ini section expects
 // to have a sql statement
 /*
-   parser := NewSqlINIFromFile("caboose.ini")
+In caboose.ini file
+
+[create_bag]
+CREATE TABLE bag (
+    id INTEGER PRIMARY KEY NOT NULL,
+    name TEXT
+);
+
+[select_bag]
+SELECT id FROM bag WHERE name = ?
+
+[insert_bag]
+INSERT INTO bag(name) VALUES(?)
+
+.......
+
+
+   parser := NewSqlParserFromFile("caboose.ini")
    for _, section := range parser.Sections() {
        fmt.Printf("section:%s\nvalue:%s\n\n",section,parser.GetSection(section))
    }
 
 */
-type SqlINI struct {
+type SqlParser struct {
     content map[string]string
 }
 
 // Returns a new instance
-func NewSqlINIFromFile(file string) *SqlINI {
+func NewSqlParserFromFile(file string) *SqlParser {
     c, err := ioutil.ReadFile(file)
     if err != nil {
         log.Fatal(err)
@@ -292,11 +309,11 @@ func NewSqlINIFromFile(file string) *SqlINI {
             b.WriteString(line)
         }
     }
-    return &SqlINI{content: content}
+    return &SqlParser{content: content}
 }
 
 // List of ini section
-func (ini *SqlINI) Sections() []string {
+func (ini *SqlParser) Sections() []string {
     var s []string
     for k, _ := range ini.content {
         s = append(s, k)
@@ -305,7 +322,7 @@ func (ini *SqlINI) Sections() []string {
 }
 
 // Value of a particular section
-func (ini *SqlINI) GetSection(key string) string {
+func (ini *SqlParser) GetSection(key string) string {
     if _, ok := ini.content[key]; ok {
         return ini.content[key]
     }
