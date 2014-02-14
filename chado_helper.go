@@ -2,6 +2,8 @@ package gochado
 
 import (
     "bytes"
+    "crypto/md5"
+    "encoding/hex"
     "github.com/jmoiron/sqlx"
     "io"
     "io/ioutil"
@@ -9,6 +11,13 @@ import (
     "strings"
     "sync"
 )
+
+// Returns MD5 hash of string
+func GetMD5Hash(text string) string {
+    hasher := md5.New()
+    hasher.Write([]byte(text))
+    return hex.EncodeToString(hasher.Sum(nil))
+}
 
 // Type to hold an active chado database handler. It is expected to be embedded in
 // other type structure that requires an active chado connection.
@@ -327,4 +336,36 @@ func (ini *SqlParser) GetSection(key string) string {
         return ini.content[key]
     }
     return ""
+}
+
+// A simple way to hold bucket of data primarilly for inserting in batch to a relational backend.
+// It is a simple slice of maps container where each will have values keyed by
+// a column name. Ultimately, each of this map will be transformed into a row
+// in the database.
+type DataBucket struct {
+    bucket []map[string]string
+}
+
+func NewDataBucket() *DataBucket {
+    return &DataBucket{bucket: make([]map[string]string, 0)}
+}
+
+func (b *DataBucket) Push(m map[string]string) {
+    b.bucket = append(b.bucket, m)
+}
+
+func (b *DataBucket) Clear() {
+    b.bucket = make([]map[string]string, 0)
+}
+
+func (b *DataBucket) GetByPosition(pos int) map[string]string {
+    return b.bucket[pos]
+}
+
+func (b *DataBucket) Elements() []map[string]string {
+    return b.bucket
+}
+
+func (b *DataBucket) Count() int {
+    return len(b.bucket)
 }
