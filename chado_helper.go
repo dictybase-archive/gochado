@@ -237,12 +237,20 @@ func (helper *ChadoHelper) NormaLizeId(dbxref string) (int, string, error) {
     return dbid, dbxref, nil
 }
 
-// A type for managing data from ini style config file where each block holds
-// a sql statement
+// Parsing data from ini style config file. Here is ini section expects
+// to have a sql statement
+/*
+   parser := NewSqlINIFromFile("caboose.ini")
+   for _, section := range parser.Sections() {
+       fmt.Printf("section:%s\nvalue:%s\n\n",section,parser.GetSection(section))
+   }
+
+*/
 type SqlINI struct {
     content map[string]string
 }
 
+// Returns a new instance
 func NewSqlINIFromFile(file string) *SqlINI {
     c, err := ioutil.ReadFile(file)
     if err != nil {
@@ -270,7 +278,7 @@ func NewSqlINIFromFile(file string) *SqlINI {
         if strings.HasPrefix(line, "[") && strings.HasSuffix(line, "]\n") {
             key := line[1 : len(line)-2]
             if _, ok := content[key]; ok {
-                log.Fatal("duplicate keys not allowd")
+                log.Fatal("duplicate keys not allowed")
             } else {
                 if len(curr) == 0 { //first block
                     curr = key
@@ -287,6 +295,7 @@ func NewSqlINIFromFile(file string) *SqlINI {
     return &SqlINI{content: content}
 }
 
+// List of ini section
 func (ini *SqlINI) Sections() []string {
     var s []string
     for k, _ := range ini.content {
@@ -295,6 +304,7 @@ func (ini *SqlINI) Sections() []string {
     return s
 }
 
+// Value of a particular section
 func (ini *SqlINI) GetSection(key string) string {
     if _, ok := ini.content[key]; ok {
         return ini.content[key]
