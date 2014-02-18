@@ -1,11 +1,11 @@
 package gochado
 
 // Interface for making a loader for staging tables
-type Staging interface {
+type StagingLoader interface {
     // Add a row of unprocessed data to the staging cache
-    AddDataRow([]byte)
+    AddDataRow(string)
     // Create temporary staging tables
-    CreateTables(string)
+    CreateTables()
     // Drop the staging tables
     DropTables()
     // Alteration in the staging tables, for example creating indexes
