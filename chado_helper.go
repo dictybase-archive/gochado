@@ -170,10 +170,7 @@ func (helper *ChadoHelper) FindOrCreateCvId(cv string) (int, error) {
     return id, nil
 }
 
-// Given a cvterm, cv and db names returns primary key of cvterm
-// table(cvterm_id). The lookup is done on
-// the cache first and if absent retrieved from cvterm table.
-func (helper *ChadoHelper) FindOrCreateCvtermId(cv, cvt, db string) (int, error) {
+func (helper *ChadoHelper) FindCvtermId(cv, cvt string) (int, error) {
     cvtcache := helper.caches["cvterm"]
     cvterm := cv + "-" + cvt
     if cvtcache.Has(cvterm) {
@@ -190,11 +187,15 @@ func (helper *ChadoHelper) FindOrCreateCvtermId(cv, cvt, db string) (int, error)
     if err != nil {
         return 0, err
     }
-    if cvtid != 0 {
-        cvtcache.Set(cvterm, cvtid)
-        return cvtid, nil
-    }
+    cvtcache.Set(cvterm, cvtid)
+    return cvtid, nil
+}
 
+// Given a cvterm, cv and db names returns primary key of cvterm
+// table(cvterm_id). The lookup is done on
+// the cache first and if absent retrieved from cvterm table.
+func (helper *ChadoHelper) FindOrCreateCvtermId(cv, cvt, db string) (int, error) {
+    sqlx := helper.Database.ChadoHandler
     //create cvterm
     dbid, err := helper.FindOrCreateDbId(db)
     if err != nil {
@@ -224,7 +225,8 @@ func (helper *ChadoHelper) FindOrCreateCvtermId(cv, cvt, db string) (int, error)
         return 0, err
     }
     id := int(id64)
-    cvtcache.Set(cvterm, id)
+    cvtcache := helper.caches["cvterm"]
+    cvtcache.Set(cv+"-"+cvt, id)
     return id, nil
 }
 
