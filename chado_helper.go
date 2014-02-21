@@ -301,14 +301,25 @@ type SqlParser struct {
     content map[string]string
 }
 
-// Returns a new instance
+// Parse ini sql content from a string and returns a new instance
+func NewSqlParserFromString(content string) *SqlParser {
+    buffer := bytes.NewBufferString(content)
+    return &SqlParser{content: ParseConfig(buffer)}
+}
+
+// Parse ini sql content from a file and returns a new instance
 func NewSqlParserFromFile(file string) *SqlParser {
     c, err := ioutil.ReadFile(file)
     if err != nil {
         log.Fatal(err)
     }
     buffer := bytes.NewBuffer(c)
+    return &SqlParser{content: ParseConfig(buffer)}
 
+}
+
+// Parse ini content from a buffer
+func ParseConfig(buffer *bytes.Buffer) map[string]string {
     var curr string
     var b bytes.Buffer
     content := make(map[string]string)
@@ -343,7 +354,7 @@ func NewSqlParserFromFile(file string) *SqlParser {
             b.WriteString(line)
         }
     }
-    return &SqlParser{content: content}
+    return content
 }
 
 // List of ini section
