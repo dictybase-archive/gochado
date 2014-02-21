@@ -196,7 +196,7 @@ func (helper *ChadoHelper) FindCvtermId(cv, cvt string) (int, error) {
 //  cvterm: manadatory
 //  dbxref: mandatory. If dbxref has Db:Id structure the Db and Id are split before
 //          storing
-//  db:     optional. By default local is used.
+//  db:     optional. By default internal is used.
 func (helper *ChadoHelper) CreateCvtermId(params map[string]string) (int, error) {
     for _, k := range []string{"cv", "cvterm", "dbxref"} {
         if _, ok := params[k]; !ok {
@@ -212,7 +212,7 @@ func (helper *ChadoHelper) CreateCvtermId(params map[string]string) (int, error)
 
     } else {
         xref = params["dbxref"]
-        db = "local"
+        db = "internal"
     }
     if v, ok := params["db"]; ok {
         db = v
@@ -253,19 +253,20 @@ func (helper *ChadoHelper) CreateCvtermId(params map[string]string) (int, error)
 }
 
 // Given a dbxref returns its db_id and accession. Accepts both Db:Dbxref and
-// Dbxref form.
+// Dbxref form. Create the Db entry if absent in the database. In case of
+// without specific Db, *internal* is used
 func (helper *ChadoHelper) NormaLizeId(dbxref string) (int, string, error) {
     if strings.Contains(dbxref, ":") {
         xrefs := strings.SplitN(dbxref, ":", 1)
         dbid, err := helper.FindOrCreateDbId(xrefs[0])
         if err != nil {
-            return 0, "", err
+            return 0, "", fmt.Errorf("error %s with Db:Dbxref form of dbxref", err)
         }
         return dbid, xrefs[1], nil
     }
-    dbid, err := helper.FindOrCreateDbId(dbxref)
+    dbid, err := helper.FindOrCreateDbId("internal")
     if err != nil {
-        return 0, "", err
+        return 0, "", fmt.Errorf("error %s with Dbxref form of dbxref", err)
     }
     return dbid, dbxref, nil
 }
