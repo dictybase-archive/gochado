@@ -89,5 +89,30 @@ func TestFindOrCreateCvtermId(t *testing.T) {
     if err != nil {
         t.Error(err)
     }
-    Expect(chado).Should(HaveDbxref("local:Todd Gag"))
+    Expect(chado).Should(HaveDbxref("internal:Todd Gag"))
+}
+
+func TestNormalizeId(t *testing.T) {
+    chado := testchado.NewDBManager()
+    chado.DeploySchema()
+    helper := NewChadoHelper(chado.DBHandle())
+    dbid, acc, err := helper.NormaLizeId("GC:53843934")
+    if err != nil {
+        t.Error(err)
+    }
+    if acc != "53843934" {
+        t.Errorf("expected %s Got %s", "53843934", acc)
+    }
+    dbid2, _ := helper.FindOrCreateDbId("GC")
+    if dbid2 != dbid {
+        t.Errorf("Expected %d Got %d", dbid, dbid2)
+    }
+    dbid, _, err = helper.NormaLizeId("DDB8594")
+    if err != nil {
+        t.Error(err)
+    }
+    dbid2, _ = helper.FindOrCreateDbId("internal")
+    if dbid != dbid2 {
+        t.Errorf("Expected %d Got %d", dbid, dbid2)
+    }
 }
