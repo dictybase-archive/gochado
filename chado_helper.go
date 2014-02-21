@@ -4,6 +4,7 @@ import (
     "bytes"
     "crypto/md5"
     "encoding/hex"
+    "fmt"
     "github.com/jmoiron/sqlx"
     "io"
     "io/ioutil"
@@ -93,7 +94,7 @@ type ChadoHelper struct {
 func NewChadoHelper(dbh *sqlx.DB) *ChadoHelper {
     m := make(map[string]*DataCache)
     for _, name := range []string{"db", "cv", "cvterm", "dbxref"} {
-        m[name] = &DataCache{}
+        m[name] = NewDataCache()
     }
     return &ChadoHelper{&Database{ChadoHandler: dbh}, m}
 }
@@ -109,10 +110,7 @@ func (helper *ChadoHelper) FindOrCreateDbId(db string) (int, error) {
     q := "SELECT db_id FROM db WHERE name = $1"
     row := sqlx.QueryRowx(q, db)
     var dbid int
-    err := row.Scan(&dbid)
-    if err != nil {
-        return 0, err
-    }
+    _ = row.Scan(&dbid)
     if dbid != 0 {
         dbcache.Set(db, dbid)
         return dbid, nil
@@ -120,13 +118,15 @@ func (helper *ChadoHelper) FindOrCreateDbId(db string) (int, error) {
 
     tx := sqlx.MustBegin()
     result := tx.Execl("INSERT INTO db(name) VALUES($1)", db)
-    err = tx.Commit()
-    if err != nil {
-        return 0, err
-    }
     id64, err := result.LastInsertId()
     if err != nil {
-        return 0, err
+        _ = tx.Rollback()
+        return 0, fmt.Errorf("error %s in retreiving db_id", err)
+    }
+    err = tx.Commit()
+    if err != nil {
+        _ = tx.Rollback()
+        return 0, fmt.Errorf("error %s in commiting record ", err)
     }
     id := int(id64)
     dbcache.Set(db, id)
@@ -144,10 +144,7 @@ func (helper *ChadoHelper) FindOrCreateCvId(cv string) (int, error) {
     q := "SELECT cv_id FROM cv WHERE name = $1"
     row := sqlx.QueryRowx(q, cv)
     var cvid int
-    err := row.Scan(&cvid)
-    if err != nil {
-        return 0, err
-    }
+    _ = row.Scan(&cvid)
     if cvid != 0 {
         cvcache.Set(cv, cvid)
         return cvid, nil
@@ -179,7 +176,7 @@ func (helper *ChadoHelper) FindCvtermId(cv, cvt string) (int, error) {
     sqlx := helper.Database.ChadoHandler
     q := `
     SELECT cvterm_id FROM cvterm JOIN cv ON cv.cv_id = cvterm.cv_id
-    WHERE cv.name = $1 AND cvterm.name = $1
+    WHERE cv.name = $1 AND cvterm.name = $2
     `
     row := sqlx.QueryRowx(q, cv, cvt)
     var cvtid int
@@ -191,42 +188,67 @@ func (helper *ChadoHelper) FindCvtermId(cv, cvt string) (int, error) {
     return cvtid, nil
 }
 
-// Given a cvterm, cv and db names returns primary key of cvterm
-// table(cvterm_id). The lookup is done on
-// the cache first and if absent retrieved from cvterm table.
-func (helper *ChadoHelper) FindOrCreateCvtermId(cv, cvt, db string) (int, error) {
+// Creates a cvterm record from cvterm, cv, dbxref and db parameters and
+// return a primary key of cvterm
+// table(cvterm_id). The parameters are passed through a map structure with
+// the following keys
+//  cv :    manadatory
+//  cvterm: manadatory
+//  dbxref: mandatory. If dbxref has Db:Id structure the Db and Id are split before
+//          storing
+//  db:     optional. By default local is used.
+func (helper *ChadoHelper) CreateCvtermId(params map[string]string) (int, error) {
+    for _, k := range []string{"cv", "cvterm", "dbxref"} {
+        if _, ok := params[k]; !ok {
+            return 0, fmt.Errorf("missing key %s", k)
+        }
+    }
+    var db string
+    var xref string
+    if strings.Contains(params["dbxref"], ":") {
+        d := strings.SplitN(params["dbxref"], ":", 2)
+        db = d[0]
+        xref = d[1]
+
+    } else {
+        xref = params["dbxref"]
+        db = "local"
+    }
+    if v, ok := params["db"]; ok {
+        db = v
+    }
     sqlx := helper.Database.ChadoHandler
     //create cvterm
     dbid, err := helper.FindOrCreateDbId(db)
     if err != nil {
-        return 0, err
+        return 0, fmt.Errorf("error %s with FindOrCreateDbId()", err)
     }
-    cvid, err := helper.FindOrCreateCvId(cv)
+    cvid, err := helper.FindOrCreateCvId(params["cv"])
     if err != nil {
-        return 0, err
+        return 0, fmt.Errorf("error %s with FindOrCreateCvId()", err)
     }
     tx := sqlx.MustBegin()
-    result := tx.Execl("INSERT INTO dbxref(db_id,accession) VALUES($1, $2)", dbid, cvt)
+    result := tx.Execl("INSERT INTO dbxref(db_id,accession) VALUES($1, $2)", dbid, xref)
     dbxrefid, err := result.LastInsertId()
     if err != nil {
         _ = tx.Rollback()
-        return 0, err
+        return 0, fmt.Errorf("error %s with retreiving dbid", err)
     }
 
-    result = tx.Execl("INSERT INTO cvterm(cv_id,name,dbxref_id) VALUES($1, $2,$3)", cvid, cvt, dbxrefid)
+    result = tx.Execl("INSERT INTO cvterm(cv_id,name,dbxref_id) VALUES($1, $2,$3)", cvid, params["cvterm"], dbxrefid)
     id64, err := result.LastInsertId()
     if err != nil {
         _ = tx.Rollback()
-        return 0, err
+        return 0, fmt.Errorf("error %s with retreiving cvtermid", err)
     }
     err = tx.Commit()
     if err != nil {
         _ = tx.Rollback()
-        return 0, err
+        return 0, fmt.Errorf("error %s with commiting", err)
     }
     id := int(id64)
     cvtcache := helper.caches["cvterm"]
-    cvtcache.Set(cv+"-"+cvt, id)
+    cvtcache.Set(params["cv"]+"-"+params["cvterm"], id)
     return id, nil
 }
 
