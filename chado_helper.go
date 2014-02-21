@@ -257,7 +257,7 @@ func (helper *ChadoHelper) CreateCvtermId(params map[string]string) (int, error)
 // without specific Db, *internal* is used
 func (helper *ChadoHelper) NormaLizeId(dbxref string) (int, string, error) {
     if strings.Contains(dbxref, ":") {
-        xrefs := strings.SplitN(dbxref, ":", 1)
+        xrefs := strings.SplitN(dbxref, ":", 2)
         dbid, err := helper.FindOrCreateDbId(xrefs[0])
         if err != nil {
             return 0, "", fmt.Errorf("error %s with Db:Dbxref form of dbxref", err)
