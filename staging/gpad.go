@@ -17,11 +17,11 @@ type Sqlite struct {
 func NewSqlite(dbh *sqlx.DB, parser *gochado.SqlParser) *Sqlite {
     sec := make([]string, 0)
     buc := make(map[string]*gochado.DataBucket)
-    for i, section := range parser.Sections() {
+    for _, section := range parser.Sections() {
         if strings.HasPrefix(section, "create_table_temp_") {
-            n := strings.Replace(section, "create_table_temp_", "", 1)
+            n := strings.Replace(section, "create_table_", "", 1)
             buc[n] = gochado.NewDataBucket()
-            sec[i] = n
+            sec = append(sec, section)
         }
     }
     return &Sqlite{gochado.NewChadoHelper(dbh), parser, sec, buc}
