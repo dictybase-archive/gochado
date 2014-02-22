@@ -95,6 +95,7 @@ func TestFindOrCreateCvtermId(t *testing.T) {
 func TestNormalizeId(t *testing.T) {
     chado := testchado.NewDBManager()
     chado.DeploySchema()
+    defer chado.DropSchema()
     helper := NewChadoHelper(chado.DBHandle())
     dbid, acc, err := helper.NormaLizeId("GC:53843934")
     if err != nil {
