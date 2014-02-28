@@ -1,8 +1,11 @@
 package staging
 
 import (
+    "bytes"
+    "fmt"
     "github.com/dictybase/gochado"
     "github.com/jmoiron/sqlx"
+    "log"
     "strings"
 )
 
@@ -15,7 +18,11 @@ type Sqlite struct {
 }
 
 func NewSqlite(dbh *sqlx.DB, parser *gochado.SqlParser) *Sqlite {
+    //list of ini sections
     sec := make([]string, 0)
+    //slice of data buckets keyed by staging table names.
+    //each element of bucket slice is map type that represents a row of data.
+    //keys of the map represents column names.
     buc := make(map[string]*gochado.DataBucket)
     for _, section := range parser.Sections() {
         if strings.HasPrefix(section, "create_table_temp_") {
@@ -89,4 +96,36 @@ func (sqlite *Sqlite) AlterTables() {
 }
 
 func (sqlite *Sqlite) BulkLoad() {
+    //Here is how it works...
+    //Get name of each staging table
+    for name := range sqlite.buckets {
+        b, ok := sqlite.buckets[name]
+        if !ok {
+            log.Fatalf("Unable to retrieve bucket named %s", name)
+        }
+        //Get the first element from bucket and then extract columns names
+        columns := make([]string, 0)
+        for col := range b.GetByPosition(0) {
+            columns = append(columns, col)
+        }
+        pstmt := fmt.Sprintf("INSERT INTO %s(%s)", name, strings.Join(columns, ","))
+        var str bytes.Buffer
+        for _, element := range b.Elements() {
+            fstmt := fmt.Sprintf("%s VALUES(%s);\n", pstmt, strings.Join(ElementToValueString(element, columns), ","))
+            str.WriteString(fstmt)
+        }
+        sqlite.ChadoHelper.ChadoHandler.Execf(str.String())
+    }
+}
+
+func ElementToValueString(element map[string]string, columns []string) []string {
+    values := make([]string, 0)
+    for _, name := range columns {
+        if v, ok := element[name]; ok {
+            values = append(values, v)
+        } else {
+            values = append(values, "")
+        }
+    }
+    return values
 }

@@ -1,6 +1,7 @@
 package staging
 
 import (
+    "bytes"
     "github.com/GeertJohan/go.rice"
     "github.com/dictybase/gochado"
     "github.com/dictybase/testchado"
@@ -38,6 +39,27 @@ func TestSqlite(t *testing.T) {
         }
         if tbl != sec {
             t.Errorf("should have retrieved table %s", sec)
+        }
+    }
+
+    gpstr, err := r.String("test.gpad")
+    if err != nil {
+        t.Error(err)
+    }
+    buff := bytes.NewBufferString(gpstr)
+    for {
+        line, err := buff.ReadString('\n')
+        if err != nil {
+            break
+        }
+        staging.AddDataRow(line)
+    }
+    if len(staging.buckets) != 3 {
+        t.Errorf("should have three buckets got %d", len(staging.buckets))
+    }
+    for _, name := range []string{"gpad", "gpad_reference", "gpad_withfrom"} {
+        if _, ok := staging.buckets[name]; !ok {
+            t.Errorf("bucket %s do not exist", name)
         }
     }
 }
