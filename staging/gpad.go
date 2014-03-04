@@ -12,14 +12,20 @@ import (
 // Sqlite backend for loading GPAD in staging tables
 type Sqlite struct {
     *gochado.ChadoHelper
+    // ini parser instance
     sqlparser *gochado.SqlParser
-    sections  []string
-    buckets   map[string]*gochado.DataBucket
+    // slice holds list of sections in the ini file
+    sections []string
+    // slice holds list of tables
+    tables []string
+    // map of buckets for holding rows of data
+    buckets map[string]*gochado.DataBucket
 }
 
 func NewSqlite(dbh *sqlx.DB, parser *gochado.SqlParser) *Sqlite {
     //list of ini sections
     sec := make([]string, 0)
+    tbl := make([]string, 0)
     //slice of data buckets keyed by staging table names.
     //each element of bucket slice is map type that represents a row of data.
     //keys of the map represents column names.
@@ -28,10 +34,11 @@ func NewSqlite(dbh *sqlx.DB, parser *gochado.SqlParser) *Sqlite {
         if strings.HasPrefix(section, "create_table_temp_") {
             n := strings.Replace(section, "create_table_temp_", "", 1)
             buc[n] = gochado.NewDataBucket()
+            tbl = append(tbl, strings.Replace(section, "create_table_", "", 1))
             sec = append(sec, section)
         }
     }
-    return &Sqlite{gochado.NewChadoHelper(dbh), parser, sec, buc}
+    return &Sqlite{gochado.NewChadoHelper(dbh), parser, sec, tbl, buc}
 }
 
 func (sqlite *Sqlite) AddDataRow(row string) {
