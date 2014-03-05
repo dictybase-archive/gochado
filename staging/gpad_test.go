@@ -24,7 +24,7 @@ func TestSqlite(t *testing.T) {
     if err != nil {
         t.Errorf("could not open file sqlite_gpad.ini from rice box error:%s", err)
     }
-    staging := NewSqlite(dbh, gochado.NewSqlParserFromString(str))
+    staging := NewStagingSqlite(dbh, gochado.NewSqlParserFromString(str))
     ln := len(staging.sections)
     if ln != 3 {
         t.Errorf("Expecting 3 entries got %d", ln)
@@ -63,9 +63,40 @@ func TestSqlite(t *testing.T) {
         }
     }
     if staging.buckets["gpad"].Count() != 10 {
-        t.Errorf("should have %d data row under %s key", 9, "gpad")
+        t.Errorf("should have %d data row under %s key", 10, "gpad")
     }
     if staging.buckets["gpad_reference"].Count() != 1 {
         t.Errorf("got %d data row expected %d under %s key", staging.buckets["gpad_reference"].Count(), 1, "gpad_reference")
+    }
+    if staging.buckets["gpad_withfrom"].Count() != 5 {
+        t.Errorf("got %d data row expected %d under %s key", staging.buckets["gpad_withfrom"].Count(), 5, "gpad_withfrom")
+    }
+
+    //bulkload testing
+    staging.BulkLoad()
+    type entries struct{ Counter int }
+    e := entries{}
+    err = dbh.Get(&e, "SELECT COUNT(*) counter FROM temp_gpad")
+    if err != nil {
+        t.Errorf("should have executed the query %s", err)
+    }
+    if e.Counter != 10 {
+        t.Errorf("expected %d got %d", 10, e.Counter)
+    }
+
+    err = dbh.Get(&e, "SELECT COUNT(*) counter FROM temp_gpad_reference")
+    if err != nil {
+        t.Errorf("should have executed the query %s", err)
+    }
+    if e.Counter != 1 {
+        t.Errorf("expected %d got %d", 1, e.Counter)
+    }
+
+    err = dbh.Get(&e, "SELECT COUNT(*) counter FROM temp_gpad_withfrom")
+    if err != nil {
+        t.Errorf("should have executed the query %s", err)
+    }
+    if e.Counter != 5 {
+        t.Errorf("expected %d got %d", 5, e.Counter)
     }
 }
