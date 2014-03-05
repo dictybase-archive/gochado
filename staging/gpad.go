@@ -6,8 +6,11 @@ import (
     "github.com/dictybase/gochado"
     "github.com/jmoiron/sqlx"
     "log"
+    "regexp"
     "strings"
 )
+
+var br = regexp.MustCompile(`^\s+$`)
 
 // Sqlite backend for loading GPAD in staging tables
 type Sqlite struct {
@@ -22,7 +25,7 @@ type Sqlite struct {
     buckets map[string]*gochado.DataBucket
 }
 
-func NewSqlite(dbh *sqlx.DB, parser *gochado.SqlParser) *Sqlite {
+func NewStagingSqlite(dbh *sqlx.DB, parser *gochado.SqlParser) *Sqlite {
     //list of ini sections
     sec := make([]string, 0)
     tbl := make([]string, 0)
@@ -42,11 +45,15 @@ func NewSqlite(dbh *sqlx.DB, parser *gochado.SqlParser) *Sqlite {
 }
 
 func (sqlite *Sqlite) AddDataRow(row string) {
+    //ignore blank lines
+    if br.MatchString(row) {
+        return
+    }
+    // ignore comment line
     if strings.HasPrefix(row, "!") {
         return
     }
     d := strings.Split(row, "\t")
-    var pref string
     refs := make([]string, 0)
     if strings.Contains(d[4], "|") {
         refs = append(refs, strings.Split(d[4], "|")...)
@@ -55,14 +62,14 @@ func (sqlite *Sqlite) AddDataRow(row string) {
     }
 
     gpad := make(map[string]string)
-    gpad["digest"] = gochado.GetMD5Hash(d[1] + d[2] + d[3] + pref + d[5] + d[8] + d[9])
+    gpad["digest"] = gochado.GetMD5Hash(d[1] + d[2] + d[3] + refs[0] + d[5] + d[8] + d[9])
     gpad["id"] = d[1]
     gpad["qualifier"] = d[2]
     gpad["goid"] = d[3]
     gpad["publication_id"] = refs[0]
     gpad["evidence_code"] = d[5]
-    gpad["assigned_by"] = d[8]
-    gpad["date_curated"] = d[9]
+    gpad["date_curated"] = d[8]
+    gpad["assigned_by"] = d[9]
     if _, ok := sqlite.buckets["gpad"]; !ok {
         log.Fatal("key *gpad* is not found in bucket")
     }
@@ -118,16 +125,17 @@ func (sqlite *Sqlite) BulkLoad() {
     //Here is how it works...
     //Get name of each staging table
     for name := range sqlite.buckets {
-        b, ok := sqlite.buckets[name]
-        if !ok {
-            log.Fatalf("Unable to retrieve bucket named %s", name)
+        b := sqlite.buckets[name]
+        if b.Count() == 0 { // no data
+            continue
         }
         //Get the first element from bucket and then extract columns names
         columns := make([]string, 0)
         for col := range b.GetByPosition(0) {
             columns = append(columns, col)
         }
-        pstmt := fmt.Sprintf("INSERT INTO %s(%s)", name, strings.Join(columns, ","))
+        tbl := "temp_" + name
+        pstmt := fmt.Sprintf("INSERT INTO %s(%s)", tbl, strings.Join(columns, ","))
         var str bytes.Buffer
         for _, element := range b.Elements() {
             fstmt := fmt.Sprintf("%s VALUES(%s);\n", pstmt, strings.Join(ElementToValueString(element, columns), ","))
@@ -141,7 +149,7 @@ func ElementToValueString(element map[string]string, columns []string) []string 
     values := make([]string, 0)
     for _, name := range columns {
         if v, ok := element[name]; ok {
-            values = append(values, v)
+            values = append(values, "'"+v+"'")
         } else {
             values = append(values, "")
         }
