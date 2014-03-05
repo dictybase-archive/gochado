@@ -30,7 +30,7 @@ func TestSqlite(t *testing.T) {
         t.Errorf("Expecting 3 entries got %d", ln)
     }
     staging.CreateTables()
-    for sec := range staging.buckets {
+    for _, sec := range staging.tables {
         row := dbh.QueryRowx("SELECT name FROM sqlite_temp_master WHERE type = 'table' AND name = $1", sec)
         var tbl string
         err = row.Scan(&tbl)
@@ -61,5 +61,11 @@ func TestSqlite(t *testing.T) {
         if _, ok := staging.buckets[name]; !ok {
             t.Errorf("bucket %s do not exist", name)
         }
+    }
+    if staging.buckets["gpad"].Count() != 10 {
+        t.Errorf("should have %d data row under %s key", 9, "gpad")
+    }
+    if staging.buckets["gpad_reference"].Count() != 1 {
+        t.Errorf("got %d data row expected %d under %s key", staging.buckets["gpad_reference"].Count(), 1, "gpad_reference")
     }
 }
