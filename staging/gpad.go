@@ -72,7 +72,7 @@ func (sqlite *Sqlite) AddDataRow(row string) {
         if _, ok := sqlite.buckets["gpad_reference"]; !ok {
             log.Fatal("key *gpad_reference* is not found in bucket")
         }
-        for _, value := range refs {
+        for _, value := range refs[1:] {
             gref := make(map[string]string)
             gref["digest"] = gpad["digest"]
             gref["publication_id"] = value
