@@ -12,7 +12,7 @@ type GpadFixtureLoader struct {
     helper *ChadoHelper
 }
 
-func NewGpadFixtureLoader(tc *testchado.DBHelper) *GpadFixtureLoader {
+func NewGpadFixtureLoader(tc *testchado.DBManager) *GpadFixtureLoader {
     return &GpadFixtureLoader{gorm: tc.GormHandle(), helper: NewChadoHelper(tc.DBHandle())}
 }
 
