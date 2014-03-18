@@ -12,8 +12,10 @@ type GpadFixtureLoader struct {
     helper *ChadoHelper
 }
 
-func NewGpadFixtureLoader(tc *testchado.DBManager) *GpadFixtureLoader {
-    return &GpadFixtureLoader{gorm: tc.GormHandle(), helper: NewChadoHelper(tc.DBHandle())}
+func NewGpadFixtureLoader(tc testchado.DBManager) *GpadFixtureLoader {
+    gorm := tc.GormHandle()
+    gorm.LogMode(false)
+    return &GpadFixtureLoader{gorm: gorm, helper: NewChadoHelper(tc.DBHandle())}
 }
 
 func (f *GpadFixtureLoader) LoadGenes(genes []string) []Feature {
@@ -35,9 +37,9 @@ func (f *GpadFixtureLoader) LoadGenes(genes []string) []Feature {
 func (f *GpadFixtureLoader) LoadGoIds(ids map[string]string) []Cvterm {
     gorm := f.gorm
     var cv Cv
-    gorm.FirstOrInit(&cv, Cv{Name: "GO"})
+    gorm.Where(&Cv{Name: "GO"}).FirstOrInit(&cv)
     var db Db
-    gorm.FirstOrInit(&db, Db{Name: "GO"})
+    gorm.Where(&Db{Name: "GO"}).FirstOrInit(&db)
     terms := make([]Cvterm, 0)
     for id, name := range ids {
         _, xref, err := f.helper.NormaLizeId(id)
@@ -98,7 +100,7 @@ func (f *GpadFixtureLoader) LoadMiscCvterms(cv string) []Cvterm {
             log.Fatal(err)
         }
         var t Cvterm
-        gorm.First(&t, id)
+        gorm.Where("cvterm_id = ?", id).First(&t)
         cvterms = append(cvterms, t)
     }
     return cvterms
