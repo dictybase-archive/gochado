@@ -86,7 +86,7 @@ type Feature struct {
 type Pub struct {
     PubId       int64 `primary_key:"pub_id"`
     Title       string
-    Volumttitle string
+    Volumetitle string
     Volume      string
     SeriesName  string
     Issue       string
