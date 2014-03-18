@@ -81,13 +81,15 @@ func (sqlite *Sqlite) AddDataRow(row string) {
     }
     goid := strings.Split(d[3], ":")[1]
     evcode := strings.Split(d[5], ":")[1]
+    pr := NormaLizePubRecord(refs)
 
     gpad := make(map[string]string)
     gpad["digest"] = gochado.GetMD5Hash(d[1] + d[2] + goid + refs[0] + evcode + d[8] + d[9])
     gpad["id"] = d[1]
     gpad["qualifier"] = d[2]
     gpad["goid"] = goid
-    gpad["publication_id"] = refs[0]
+    gpad["publication_id"] = pr[0].id
+    gpad["pubplace"] = pr[0].pubplace
     gpad["evidence_code"] = evcode
     gpad["date_curated"] = d[8]
     gpad["assigned_by"] = d[9]
@@ -96,14 +98,15 @@ func (sqlite *Sqlite) AddDataRow(row string) {
     }
     sqlite.buckets["gpad"].Push(gpad)
 
-    if len(refs) > 1 {
+    if len(pr) > 1 {
         if _, ok := sqlite.buckets["gpad_reference"]; !ok {
             log.Fatal("key *gpad_reference* is not found in bucket")
         }
-        for _, value := range refs[1:] {
+        for _, r := range pr[1:] {
             gref := make(map[string]string)
             gref["digest"] = gpad["digest"]
-            gref["publication_id"] = value
+            gref["publication_id"] = r.id
+            gref["pubplace"] = r.pubplace
             sqlite.buckets["gpad_reference"].Push(gref)
         }
     }
