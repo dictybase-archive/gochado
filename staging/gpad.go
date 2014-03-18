@@ -12,6 +12,25 @@ import (
 
 var br = regexp.MustCompile(`^\s+$`)
 
+// Publication record with id and namespace
+type PubRecord struct {
+    id       string
+    pubplace string
+}
+
+func NormaLizePubRecord(pubs []string) []*PubRecord {
+    pr := make([]*PubRecord, 0)
+    for _, r := range pubs {
+        out := strings.Split(r, ":")
+        if out[0] == "PMID" {
+            pr = append(pr, &PubRecord{out[1], "PubMed"})
+            continue
+        }
+        pr = append(pr, &PubRecord{out[1], out[0]})
+    }
+    return pr
+}
+
 // Sqlite backend for loading GPAD in staging tables
 type Sqlite struct {
     *gochado.ChadoHelper
@@ -60,14 +79,16 @@ func (sqlite *Sqlite) AddDataRow(row string) {
     } else {
         refs = append(refs, d[4])
     }
+    goid := strings.Split(d[3], ":")[1]
+    evcode := strings.Split(d[5], ":")[1]
 
     gpad := make(map[string]string)
-    gpad["digest"] = gochado.GetMD5Hash(d[1] + d[2] + d[3] + refs[0] + d[5] + d[8] + d[9])
+    gpad["digest"] = gochado.GetMD5Hash(d[1] + d[2] + goid + refs[0] + evcode + d[8] + d[9])
     gpad["id"] = d[1]
     gpad["qualifier"] = d[2]
-    gpad["goid"] = d[3]
+    gpad["goid"] = goid
     gpad["publication_id"] = refs[0]
-    gpad["evidence_code"] = d[5]
+    gpad["evidence_code"] = evcode
     gpad["date_curated"] = d[8]
     gpad["assigned_by"] = d[9]
     if _, ok := sqlite.buckets["gpad"]; !ok {
