@@ -379,26 +379,26 @@ func (ini *SqlParser) GetSection(key string) string {
 // a column name. Ultimately, each of this map will be transformed into a row
 // in the database.
 type DataBucket struct {
-    bucket []map[string]string
+    bucket []map[string]interface{}
 }
 
 func NewDataBucket() *DataBucket {
-    return &DataBucket{bucket: make([]map[string]string, 0)}
+    return &DataBucket{bucket: make([]map[string]interface{}, 0)}
 }
 
-func (b *DataBucket) Push(m map[string]string) {
+func (b *DataBucket) Push(m map[string]interface{}) {
     b.bucket = append(b.bucket, m)
 }
 
 func (b *DataBucket) Clear() {
-    b.bucket = make([]map[string]string, 0)
+    b.bucket = make([]map[string]interface{}, 0)
 }
 
-func (b *DataBucket) GetByPosition(pos int) map[string]string {
+func (b *DataBucket) GetByPosition(pos int) map[string]interface{} {
     return b.bucket[pos]
 }
 
-func (b *DataBucket) Elements() []map[string]string {
+func (b *DataBucket) Elements() []map[string]interface{} {
     return b.bucket
 }
 
