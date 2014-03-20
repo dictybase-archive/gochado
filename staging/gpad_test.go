@@ -29,7 +29,7 @@ func TestSqlite(t *testing.T) {
     }
     staging := NewStagingSqlite(dbh, gochado.NewSqlParserFromString(str))
     ln := len(staging.sections)
-    if ln != 3 {
+    if ln != 4 {
         t.Errorf("Expecting 3 entries got %d", ln)
     }
     staging.CreateTables()
@@ -58,8 +58,8 @@ func TestSqlite(t *testing.T) {
         }
         staging.AddDataRow(line)
     }
-    if len(staging.buckets) != 3 {
-        t.Errorf("should have three buckets got %d", len(staging.buckets))
+    if len(staging.buckets) != 4 {
+        t.Errorf("should have 4 buckets got %d", len(staging.buckets))
     }
     for _, name := range []string{"gpad", "gpad_reference", "gpad_withfrom"} {
         if _, ok := staging.buckets[name]; !ok {
