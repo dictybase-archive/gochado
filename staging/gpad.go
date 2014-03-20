@@ -7,6 +7,7 @@ import (
     "github.com/jmoiron/sqlx"
     "log"
     "regexp"
+    "strconv"
     "strings"
 )
 
@@ -42,6 +43,8 @@ type Sqlite struct {
     tables []string
     // map of buckets for holding rows of data
     buckets map[string]*gochado.DataBucket
+    // map of rank values identify record with different evidence code
+    ranks map[string]int
 }
 
 func NewStagingSqlite(dbh *sqlx.DB, parser *gochado.SqlParser) *Sqlite {
@@ -60,7 +63,7 @@ func NewStagingSqlite(dbh *sqlx.DB, parser *gochado.SqlParser) *Sqlite {
             sec = append(sec, section)
         }
     }
-    return &Sqlite{gochado.NewChadoHelper(dbh), parser, sec, tbl, buc}
+    return &Sqlite{gochado.NewChadoHelper(dbh), parser, sec, tbl, buc, make(map[string]int)}
 }
 
 func (sqlite *Sqlite) AddDataRow(row string) {
@@ -83,8 +86,8 @@ func (sqlite *Sqlite) AddDataRow(row string) {
     evcode := strings.Split(d[5], ":")[1]
     pr := NormaLizePubRecord(refs)
 
-    gpad := make(map[string]string)
-    gpad["digest"] = gochado.GetMD5Hash(d[1] + d[2] + goid + refs[0] + evcode + d[8] + d[9])
+    gpad := make(map[string]interface{})
+    gpad["digest"] = gochado.GetMD5Hash(d[1] + d[2] + goid + pr[0].id + pr[0].pubplace + evcode + d[8] + d[9])
     gpad["id"] = d[1]
     gpad["qualifier"] = d[2]
     gpad["goid"] = goid
@@ -93,6 +96,14 @@ func (sqlite *Sqlite) AddDataRow(row string) {
     gpad["evidence_code"] = evcode
     gpad["date_curated"] = d[8]
     gpad["assigned_by"] = d[9]
+    rdigest := gochado.GetMD5Hash(d[1] + goid + pr[0].id + pr[0].pubplace)
+    if r, ok := sqlite.ranks[rdigest]; ok {
+        sqlite.ranks[rdigest] = r + 1
+        gpad["rank"] = r + 1
+    } else {
+        sqlite.ranks[rdigest] = 0
+        gpad["rank"] = 0
+    }
     if _, ok := sqlite.buckets["gpad"]; !ok {
         log.Fatal("key *gpad* is not found in bucket")
     }
@@ -103,7 +114,7 @@ func (sqlite *Sqlite) AddDataRow(row string) {
             log.Fatal("key *gpad_reference* is not found in bucket")
         }
         for _, r := range pr[1:] {
-            gref := make(map[string]string)
+            gref := make(map[string]interface{})
             gref["digest"] = gpad["digest"]
             gref["publication_id"] = r.id
             gref["pubplace"] = r.pubplace
@@ -122,7 +133,7 @@ func (sqlite *Sqlite) AddDataRow(row string) {
             wfrom = append(wfrom, d[6])
         }
         for _, value := range wfrom {
-            gwfrom := make(map[string]string)
+            gwfrom := make(map[string]interface{})
             gwfrom["digest"] = gpad["digest"]
             gwfrom["withfrom"] = value
             sqlite.buckets["gpad_withfrom"].Push(gwfrom)
@@ -169,11 +180,16 @@ func (sqlite *Sqlite) BulkLoad() {
     }
 }
 
-func ElementToValueString(element map[string]string, columns []string) []string {
+func ElementToValueString(element map[string]interface{}, columns []string) []string {
     values := make([]string, 0)
     for _, name := range columns {
         if v, ok := element[name]; ok {
-            values = append(values, "'"+v+"'")
+            switch d := v.(type) {
+            case int:
+                values = append(values, strconv.Itoa(d))
+            case string:
+                values = append(values, "'"+d+"'")
+            }
         } else {
             values = append(values, "")
         }
