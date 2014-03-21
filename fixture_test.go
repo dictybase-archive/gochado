@@ -43,7 +43,7 @@ func TestGpadFixtureLoader(t *testing.T) {
         t.Errorf("expected %d pubs got %d", 3, len(p))
     }
 
-    var goids map[string]string
+    var goids map[string][]string
     err = dec.Decode(&goids)
     if err != nil {
         t.Error(err)
