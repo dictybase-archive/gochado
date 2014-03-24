@@ -11,11 +11,13 @@ type Sqlite struct {
     sqlparser *gochado.SqlParser
     // instance of database handle
     dbh *sqlx.DB
+    // instance of Organism, should have genus and species defined
+    *gochado.Organism
 }
 
 // Create new instatnce of Sqlite structure
-func NewChadoSqlite(dbh *sqlx.DB, parser *gochado.SqlParser) *Sqlite {
-    return &Sqlite{parser, dbh}
+func NewChadoSqlite(dbh *sqlx.DB, parser *gochado.SqlParser, org *gochado.Organism) *Sqlite {
+    return &Sqlite{parser, dbh, org}
 }
 
 func (sqlite *Sqlite) AlterTables() {
@@ -30,7 +32,7 @@ func (sqlite *Sqlite) BulkLoad() {
     parser := sqlite.sqlparser
     dbh := sqlite.dbh
     // First get latest GAF records in another staging table
-    dbh.Execf(parser.GetSection("insert_latest_goa_from_staging") + ";")
+    dbh.Execf(parser.GetSection("insert_latest_goa_from_staging")+";", sqlite.Organism.Genus, sqlite.Organism.Species)
     // Now fill up the feature_cvterm
     dbh.Execf(parser.GetSection("insert_feature_cvterm") + ";")
     sections := []string{
