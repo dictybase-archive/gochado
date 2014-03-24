@@ -10,7 +10,7 @@ import (
     "testing"
 )
 
-func TestSqlite(t *testing.T) {
+func TestGpadStagingSqlite(t *testing.T) {
     RegisterTestingT(t)
     chado := testchado.NewSQLiteManager()
     chado.DeploySchema()
