@@ -106,6 +106,8 @@ func TestGpadChadoSqlite(t *testing.T) {
         }
         grecord = l.Latest
     }
-    dbh.Execf(p.GetSection("insert_latest_goa_from_staging2"), grecord)
+    dbh.Execf(p.GetSection("insert_latest_goa_from_staging"), grecord)
     Expect("SELECT COUNT(*) FROM temp_gpad_new").Should(HaveCount(10))
+    dbh.Execf(p.GetSection("insert_feature_cvterm"))
+    Expect("SELECT COUNT(*) FROM feature_cvterm").Should(HaveCount(10))
 }
