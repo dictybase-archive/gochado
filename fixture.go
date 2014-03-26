@@ -38,6 +38,9 @@ func (f *GpadFixtureLoader) LoadGoIds(ids map[string][]string) []Cvterm {
     gorm := f.gorm
     var db Db
     gorm.Where(&Db{Name: "GO"}).FirstOrInit(&db)
+    if gorm.NewRecord(db) {
+        gorm.Save(&db)
+    }
     terms := make([]Cvterm, 0)
     for id, info := range ids {
         _, xref, err := f.helper.NormaLizeId(id)

@@ -52,6 +52,16 @@ func TestGpadFixtureLoader(t *testing.T) {
     if len(goterm) != 8 {
         t.Errorf("expected %d go terms got %d", 8, len(goterm))
     }
+    gorm := f.gorm
+    dbxref := Dbxref{}
+    db := Db{}
+    for _, cvterm := range goterm {
+        gorm.Model(&cvterm).Related(&dbxref)
+        gorm.First(&db, dbxref.DbId)
+        if db.Name != "GO" {
+            t.Errorf("expect GO got %s", db.Name)
+        }
+    }
 
     mterm := f.LoadMiscCvterms("gene_ontology_association")
     if len(mterm) != 4 {
