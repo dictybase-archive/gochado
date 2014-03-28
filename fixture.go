@@ -49,6 +49,9 @@ func (f *GpadFixtureLoader) LoadGoIds(ids map[string][]string) []Cvterm {
         }
         var cv Cv
         gorm.Where(&Cv{Name: info[0]}).FirstOrInit(&cv)
+        if gorm.NewRecord(cv) {
+            gorm.Save(&cv)
+        }
         cvterm := Cvterm{
             Name:   info[1],
             CvId:   cv.CvId,
