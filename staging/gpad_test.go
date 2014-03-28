@@ -10,7 +10,7 @@ import (
     "testing"
 )
 
-func TestSqlite(t *testing.T) {
+func TestGpadStagingSqlite(t *testing.T) {
     RegisterTestingT(t)
     chado := testchado.NewSQLiteManager()
     chado.DeploySchema()
@@ -29,7 +29,7 @@ func TestSqlite(t *testing.T) {
     }
     staging := NewStagingSqlite(dbh, gochado.NewSqlParserFromString(str))
     ln := len(staging.sections)
-    if ln != 3 {
+    if ln != 4 {
         t.Errorf("Expecting 3 entries got %d", ln)
     }
     staging.CreateTables()
@@ -58,8 +58,8 @@ func TestSqlite(t *testing.T) {
         }
         staging.AddDataRow(line)
     }
-    if len(staging.buckets) != 3 {
-        t.Errorf("should have three buckets got %d", len(staging.buckets))
+    if len(staging.buckets) != 4 {
+        t.Errorf("should have 4 buckets got %d", len(staging.buckets))
     }
     for _, name := range []string{"gpad", "gpad_reference", "gpad_withfrom"} {
         if _, ok := staging.buckets[name]; !ok {
@@ -107,17 +107,18 @@ func TestSqlite(t *testing.T) {
     type gpad struct {
         Qualifier string
         Pubid     string `db:"publication_id"`
+        Pubplace  string `db:"pubplace"`
         Evidence  string `db:"evidence_code"`
         Assigned  string `db:"assigned_by"`
         Date      string `db:"date_curated"`
     }
     g := gpad{}
-    err = dbh.Get(&g, "SELECT qualifier, publication_id, evidence_code, assigned_by, date_curated FROM temp_gpad where id = ?", "DDB_G0272003")
+    err = dbh.Get(&g, "SELECT qualifier, publication_id, pubplace, evidence_code, assigned_by, date_curated FROM temp_gpad where id = ?", "DDB_G0272003")
     if err != nil {
         t.Errorf("should have executed the query %s", err)
     }
     el := reflect.ValueOf(&g).Elem()
-    for k, v := range map[string]string{"Qualifier": "enables", "Pubid": "GO_REF:0000002", "Evidence": "ECO:0000256", "Assigned": "InterPro", "Date": "20140222"} {
+    for k, v := range map[string]string{"Qualifier": "enables", "Pubid": "0000002", "Pubplace": "GO_REF", "Evidence": "0000256", "Assigned": "InterPro", "Date": "20140222"} {
         sv := el.FieldByName(k).String()
         if sv != v {
             t.Errorf("Expected %s Got %s\n", sv, v)
@@ -126,7 +127,8 @@ func TestSqlite(t *testing.T) {
 
     type gdigest struct{ Digest string }
     type gref struct {
-        Pubid string `db:"publication_id"`
+        Pubid    string `db:"publication_id"`
+        Pubplace string `db:"pubplace"`
     }
     gd := gdigest{}
     err = dbh.Get(&gd, "SELECT digest FROM temp_gpad WHERE id = $1", "DDB_G0278727")
@@ -134,15 +136,18 @@ func TestSqlite(t *testing.T) {
         t.Errorf("should have executed the query %s", err)
     }
     gr := gref{}
-    err = dbh.Get(&gr, "SELECT publication_id FROM temp_gpad_reference WHERE digest = $1", gd.Digest)
+    err = dbh.Get(&gr, "SELECT publication_id, pubplace FROM temp_gpad_reference WHERE digest = $1", gd.Digest)
     if err != nil {
         t.Errorf("should have executed the query %s", err)
     }
-    if gr.Pubid != "GO_REF:0000033" {
-        t.Errorf("expected %s got %s", "GO_REF:0000033", gr.Pubid)
+    if gr.Pubid != "0000033" {
+        t.Errorf("expected %s got %s", "0000033", gr.Pubid)
+    }
+    if gr.Pubplace != "GO_REF" {
+        t.Errorf("expected %s got %s", "GO_REF", gr.Pubplace)
     }
 
-    err = dbh.Get(&gd, "SELECT digest FROM temp_gpad WHERE id = $1 AND evidence_code = $2", "DDB_G0272004", "ECO:0000318")
+    err = dbh.Get(&gd, "SELECT digest FROM temp_gpad WHERE id = $1 AND evidence_code = $2", "DDB_G0272004", "0000318")
     if err != nil {
         t.Errorf("should have executed the query %s", err)
     }

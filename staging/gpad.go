@@ -7,10 +7,30 @@ import (
     "github.com/jmoiron/sqlx"
     "log"
     "regexp"
+    "strconv"
     "strings"
 )
 
 var br = regexp.MustCompile(`^\s+$`)
+
+// Publication record with id and namespace
+type PubRecord struct {
+    id       string
+    pubplace string
+}
+
+func NormaLizePubRecord(pubs []string) []*PubRecord {
+    pr := make([]*PubRecord, 0)
+    for _, r := range pubs {
+        out := strings.Split(r, ":")
+        if out[0] == "PMID" {
+            pr = append(pr, &PubRecord{out[1], "PubMed"})
+            continue
+        }
+        pr = append(pr, &PubRecord{out[1], out[0]})
+    }
+    return pr
+}
 
 // Sqlite backend for loading GPAD in staging tables
 type Sqlite struct {
@@ -23,6 +43,8 @@ type Sqlite struct {
     tables []string
     // map of buckets for holding rows of data
     buckets map[string]*gochado.DataBucket
+    // map of rank values identify record with different evidence code
+    ranks map[string]int
 }
 
 func NewStagingSqlite(dbh *sqlx.DB, parser *gochado.SqlParser) *Sqlite {
@@ -41,7 +63,7 @@ func NewStagingSqlite(dbh *sqlx.DB, parser *gochado.SqlParser) *Sqlite {
             sec = append(sec, section)
         }
     }
-    return &Sqlite{gochado.NewChadoHelper(dbh), parser, sec, tbl, buc}
+    return &Sqlite{gochado.NewChadoHelper(dbh), parser, sec, tbl, buc, make(map[string]int)}
 }
 
 func (sqlite *Sqlite) AddDataRow(row string) {
@@ -60,29 +82,42 @@ func (sqlite *Sqlite) AddDataRow(row string) {
     } else {
         refs = append(refs, d[4])
     }
+    goid := strings.Split(d[3], ":")[1]
+    evcode := strings.Split(d[5], ":")[1]
+    pr := NormaLizePubRecord(refs)
 
-    gpad := make(map[string]string)
-    gpad["digest"] = gochado.GetMD5Hash(d[1] + d[2] + d[3] + refs[0] + d[5] + d[8] + d[9])
+    gpad := make(map[string]interface{})
+    gpad["digest"] = gochado.GetMD5Hash(d[1] + d[2] + goid + pr[0].id + pr[0].pubplace + evcode + d[8] + d[9])
     gpad["id"] = d[1]
     gpad["qualifier"] = d[2]
-    gpad["goid"] = d[3]
-    gpad["publication_id"] = refs[0]
-    gpad["evidence_code"] = d[5]
+    gpad["goid"] = goid
+    gpad["publication_id"] = pr[0].id
+    gpad["pubplace"] = pr[0].pubplace
+    gpad["evidence_code"] = evcode
     gpad["date_curated"] = d[8]
     gpad["assigned_by"] = d[9]
+    rdigest := gochado.GetMD5Hash(d[1] + goid + pr[0].id + pr[0].pubplace)
+    if r, ok := sqlite.ranks[rdigest]; ok {
+        sqlite.ranks[rdigest] = r + 1
+        gpad["rank"] = r + 1
+    } else {
+        sqlite.ranks[rdigest] = 0
+        gpad["rank"] = 0
+    }
     if _, ok := sqlite.buckets["gpad"]; !ok {
         log.Fatal("key *gpad* is not found in bucket")
     }
     sqlite.buckets["gpad"].Push(gpad)
 
-    if len(refs) > 1 {
+    if len(pr) > 1 {
         if _, ok := sqlite.buckets["gpad_reference"]; !ok {
             log.Fatal("key *gpad_reference* is not found in bucket")
         }
-        for _, value := range refs[1:] {
-            gref := make(map[string]string)
+        for _, r := range pr[1:] {
+            gref := make(map[string]interface{})
             gref["digest"] = gpad["digest"]
-            gref["publication_id"] = value
+            gref["publication_id"] = r.id
+            gref["pubplace"] = r.pubplace
             sqlite.buckets["gpad_reference"].Push(gref)
         }
     }
@@ -98,7 +133,7 @@ func (sqlite *Sqlite) AddDataRow(row string) {
             wfrom = append(wfrom, d[6])
         }
         for _, value := range wfrom {
-            gwfrom := make(map[string]string)
+            gwfrom := make(map[string]interface{})
             gwfrom["digest"] = gpad["digest"]
             gwfrom["withfrom"] = value
             sqlite.buckets["gpad_withfrom"].Push(gwfrom)
@@ -145,11 +180,16 @@ func (sqlite *Sqlite) BulkLoad() {
     }
 }
 
-func ElementToValueString(element map[string]string, columns []string) []string {
+func ElementToValueString(element map[string]interface{}, columns []string) []string {
     values := make([]string, 0)
     for _, name := range columns {
         if v, ok := element[name]; ok {
-            values = append(values, "'"+v+"'")
+            switch d := v.(type) {
+            case int:
+                values = append(values, strconv.Itoa(d))
+            case string:
+                values = append(values, "'"+d+"'")
+            }
         } else {
             values = append(values, "")
         }

@@ -43,7 +43,7 @@ func TestGpadFixtureLoader(t *testing.T) {
         t.Errorf("expected %d pubs got %d", 3, len(p))
     }
 
-    var goids map[string]string
+    var goids map[string][]string
     err = dec.Decode(&goids)
     if err != nil {
         t.Error(err)
@@ -51,6 +51,16 @@ func TestGpadFixtureLoader(t *testing.T) {
     goterm := f.LoadGoIds(goids)
     if len(goterm) != 8 {
         t.Errorf("expected %d go terms got %d", 8, len(goterm))
+    }
+    gorm := f.gorm
+    dbxref := Dbxref{}
+    db := Db{}
+    for _, cvterm := range goterm {
+        gorm.Model(&cvterm).Related(&dbxref)
+        gorm.First(&db, dbxref.DbId)
+        if db.Name != "GO" {
+            t.Errorf("expect GO got %s", db.Name)
+        }
     }
 
     mterm := f.LoadMiscCvterms("gene_ontology_association")

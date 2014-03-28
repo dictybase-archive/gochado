@@ -34,20 +34,26 @@ func (f *GpadFixtureLoader) LoadGenes(genes []string) []Feature {
     return features
 }
 
-func (f *GpadFixtureLoader) LoadGoIds(ids map[string]string) []Cvterm {
+func (f *GpadFixtureLoader) LoadGoIds(ids map[string][]string) []Cvterm {
     gorm := f.gorm
-    var cv Cv
-    gorm.Where(&Cv{Name: "GO"}).FirstOrInit(&cv)
     var db Db
     gorm.Where(&Db{Name: "GO"}).FirstOrInit(&db)
+    if gorm.NewRecord(db) {
+        gorm.Save(&db)
+    }
     terms := make([]Cvterm, 0)
-    for id, name := range ids {
+    for id, info := range ids {
         _, xref, err := f.helper.NormaLizeId(id)
         if err != nil {
             log.Fatal(err)
         }
+        var cv Cv
+        gorm.Where(&Cv{Name: info[0]}).FirstOrInit(&cv)
+        if gorm.NewRecord(cv) {
+            gorm.Save(&cv)
+        }
         cvterm := Cvterm{
-            Name:   name,
+            Name:   info[1],
             CvId:   cv.CvId,
             Dbxref: Dbxref{Accession: xref, DbId: db.DbId},
         }
