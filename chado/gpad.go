@@ -54,16 +54,17 @@ func (sqlite *Sqlite) BulkLoad() {
     // First get latest GAF records in another staging table
     dbh.Execf(parser.GetSection("insert_latest_goa_from_staging"), grecord)
     // Now fill up the feature_cvterm
-    dbh.Execf(parser.GetSection("insert_feature_cvterm") + ";")
+    dbh.Execf(parser.GetSection("insert_feature_cvterm"))
     sections := []string{
-        "featureprop_evcode",
-        "featureprop_qualifier",
-        "featureprop_date",
-        "featurepub_reference",
-        "featureprop_assigned_by",
-        "featureprop_withfrom",
+        "feature_cvtermprop_evcode",
+        "feature_cvtermprop_qualifier",
+        "feature_cvtermprop_date",
+        "feature_cvtermprop_assigned_by",
+        "feature_cvtermprop_withfrom",
+        "feature_cvterm_pub_reference",
     }
     for _, s := range sections {
+        s = "insert_" + s
         dbh.Execf(parser.GetSection(s) + ";")
     }
 }
