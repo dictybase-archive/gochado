@@ -77,25 +77,27 @@ func TestGpadChadoSqlite(t *testing.T) {
     RegisterDBHandler(chado)
     chado.DeploySchema()
     chado.LoadPresetFixture("eco")
-    //Teardown
-    defer chado.DropSchema()
     //Setup
     b := rice.MustFindBox("../data")
     LoadGpadStagingSqlite(chado, t, b)
     LoadGpadChadoFixtureSqlite(chado, t, b)
 
+    //Teardown
+    defer chado.DropSchema()
+
+    dbh := chado.DBHandle()
     str, err := b.String("sqlite_gpad.ini")
     if err != nil {
         t.Errorf("could not open file sqlite_gpad.ini from rice box error:%s", err)
     }
     p := gochado.NewSqlParserFromString(str)
-    dbh := chado.DBHandle()
     type entries struct{ Counter int }
     e := entries{}
     err = dbh.Get(&e, p.GetSection("select_latest_goa_count_chado"), "Dictyostelium", "disocideum")
     if err != nil {
         t.Errorf("should have run the query error: %s", err)
     }
+
     grecord := 0
     if e.Counter > 0 {
         type lt struct{ Latest int }
@@ -106,8 +108,57 @@ func TestGpadChadoSqlite(t *testing.T) {
         }
         grecord = l.Latest
     }
+
     dbh.Execf(p.GetSection("insert_latest_goa_from_staging"), grecord)
     Expect("SELECT COUNT(*) FROM temp_gpad_new").Should(HaveCount(10))
+    // Check if goid is present in dbxref
+    type gpad struct {
+        Id       string
+        Goid     string
+        Pubid    string `db:"publication_id"`
+        Pubplace string
+    }
+    g := []gpad{}
+    err = dbh.Select(&g, "SELECT id, goid, publication_id, pubplace FROM temp_gpad_new")
+    if err != nil {
+        t.Errorf("error in fetching rows from temp_gpad_new %s\n", err)
+    }
+    type xref struct {
+        Id string `db:"dbxref_id"`
+    }
+    type feat struct {
+        Id string `db:"feature_id"`
+    }
+    type pub struct {
+        Id string `db:"pub_id"`
+    }
+    xr := xref{}
+    f := feat{}
+    pb := pub{}
+    dbquery := `
+        SELECT dbxref.dbxref_id FROM dbxref
+        JOIN db ON db.db_id = dbxref.db_id
+        JOIN cvterm ON dbxref.dbxref_id = cvterm.dbxref_id
+        JOIN cv ON cv.cv_id = cvterm.cv_id
+        WHERE dbxref.accession = $1
+        AND db.name = $2
+        AND cv.name IN("biological_process", "molecular_function", "cellular_component")
+    `
+    for _, r := range g {
+        err := dbh.Get(&xr, dbquery, r.Goid, "GO")
+        if err != nil {
+            t.Errorf("unable to fetch row for dbxref id %s error: %s", r.Goid, err)
+        }
+        err = dbh.Get(&f, "SELECT feature_id FROM feature WHERE uniquename = $1", r.Id)
+        if err != nil {
+            t.Errorf("unable to fetch row for feature id %s error: %s", r.Id, err)
+        }
+        err = dbh.Get(&pb, "SELECT pub_id FROM pub WHERE uniquename = $1 AND pubplace = $2", r.Pubid, r.Pubplace)
+        if err != nil {
+            t.Errorf("unable to fetch row for publication id %s error: %s", r.Pubid)
+        }
+    }
+
     dbh.Execf(p.GetSection("insert_feature_cvterm"))
     Expect("SELECT COUNT(*) FROM feature_cvterm").Should(HaveCount(10))
 }
