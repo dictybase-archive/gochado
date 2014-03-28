@@ -206,4 +206,7 @@ func TestGpadChadoSqlite(t *testing.T) {
     m["count"] = 5
     dbh.Execf(p.GetSection("insert_feature_cvtermprop_withfrom"))
     Expect(q).Should(HaveNameCount(m))
+
+    dbh.Execf(p.GetSection("insert_feature_cvterm_pub_reference"))
+    Expect("SELECT COUNT(*) FROM feature_cvterm_pub").Should(HaveCount(1))
 }
