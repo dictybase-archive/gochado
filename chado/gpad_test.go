@@ -117,9 +117,10 @@ func TestGpadChadoSqlite(t *testing.T) {
         Goid     string
         Pubid    string `db:"publication_id"`
         Pubplace string
+        Evcode   string `db:"evidence_code"`
     }
     g := []gpad{}
-    err = dbh.Select(&g, "SELECT id, goid, publication_id, pubplace FROM temp_gpad_new")
+    err = dbh.Select(&g, "SELECT id, goid, publication_id, pubplace, evidence_code FROM temp_gpad_new")
     if err != nil {
         t.Errorf("error in fetching rows from temp_gpad_new %s\n", err)
     }
@@ -144,6 +145,16 @@ func TestGpadChadoSqlite(t *testing.T) {
         AND db.name = $2
         AND cv.name IN("biological_process", "molecular_function", "cellular_component")
     `
+    evquery := `
+        SELECT dbxref.dbxref_id FROM dbxref
+        JOIN db ON db.db_id = dbxref.db_id
+        JOIN cvterm ON dbxref.dbxref_id = cvterm.dbxref_id
+        JOIN cv ON cv.cv_id = cvterm.cv_id
+        WHERE dbxref.accession = $1
+        AND db.name = $2
+        AND cv.name = "eco"
+    `
+    // make sure all dbxrefs, db, cv, cvterms and publication records are present
     for _, r := range g {
         err := dbh.Get(&xr, dbquery, r.Goid, "GO")
         if err != nil {
@@ -157,8 +168,42 @@ func TestGpadChadoSqlite(t *testing.T) {
         if err != nil {
             t.Errorf("unable to fetch row for publication id %s error: %s", r.Pubid)
         }
+        err = dbh.Get(&xr, evquery, r.Evcode, "ECO")
+        if err != nil {
+            t.Errorf("unable to fetch row for eco dbxref id %s error: %s", r.Evcode, err)
+        }
     }
 
     dbh.Execf(p.GetSection("insert_feature_cvterm"))
     Expect("SELECT COUNT(*) FROM feature_cvterm").Should(HaveCount(10))
+    dbh.Execf(p.GetSection("insert_feature_cvtermprop_evcode"))
+    Expect("SELECT COUNT(*) FROM feature_cvtermprop").Should(HaveCount(10))
+
+    q := `
+    SELECT COUNT(*) FROM feature_cvtermprop
+    WHERE type_id = (
+        SELECT cvterm_id FROM cvterm
+        JOIN cv ON cv.cv_id = cvterm.cv_id
+        WHERE cv.name = 'gene_ontology_association'
+        AND cvterm.name = $1
+    )
+    `
+    m := make(map[string]interface{})
+    m["params"] = append(make([]interface{}, 0), "qualifier")
+    m["count"] = 10
+    dbh.Execf(p.GetSection("insert_feature_cvtermprop_qualifier"))
+    Expect(q).Should(HaveNameCount(m))
+
+    m["params"] = append(make([]interface{}, 0), "date")
+    dbh.Execf(p.GetSection("insert_feature_cvtermprop_date"))
+    Expect(q).Should(HaveNameCount(m))
+
+    m["params"] = append(make([]interface{}, 0), "source")
+    dbh.Execf(p.GetSection("insert_feature_cvtermprop_assigned_by"))
+    Expect(q).Should(HaveNameCount(m))
+
+    m["params"] = append(make([]interface{}, 0), "with")
+    m["count"] = 5
+    dbh.Execf(p.GetSection("insert_feature_cvtermprop_withfrom"))
+    Expect(q).Should(HaveNameCount(m))
 }
