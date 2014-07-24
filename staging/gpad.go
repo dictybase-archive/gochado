@@ -13,6 +13,7 @@ import (
 )
 
 var br = regexp.MustCompile(`^\s+$`)
+var er = regexp.MustCompile(`(\w+)\((\S+)\)`)
 
 // Publication record with id and namespace
 type PubRecord struct {
@@ -112,6 +113,7 @@ func (sqlite *Sqlite) AddDataRow(row string) {
 
 	sqlite.addExtraReferenceRow(pr, gpad["digest"])
 	sqlite.addWithfromRow(d, gpad["digest"])
+	sqlite.addExtensionDataRow(d, gpad["digest"])
 }
 
 func (sqlite *Sqlite) addWithfromRow(d []string, digest interface{}) {
@@ -145,6 +147,40 @@ func (sqlite *Sqlite) addExtraReferenceRow(pr []*PubRecord, digest interface{}) 
 			gref["publication_id"] = r.id
 			gref["pubplace"] = r.pubplace
 			sqlite.buckets["gpad_reference"].Push(gref)
+		}
+	}
+}
+
+func (sqlite *Sqlite) addExtensionDataRow(d []string, digest interface{}) {
+	// Verify if extension column is annotated
+	if len(d[10]) > 0 {
+		if _, ok := sqlite.buckets["gpad_extension"]; !ok {
+			log.Fatal("key *gpad_extension* is not found in bucket")
+		}
+	}
+
+	gext := make(map[string]interface{})
+	if strings.Contains(d[10], "|") {
+		// Handle multiple values
+		aextn := strings.Split(d[10], "|")
+		for _, value := range aextn {
+			if m := er.FindStringSubmatch(value); m != nil {
+				dbxref := strings.Split(m[2], ":")
+				gext["db"] = dbxref[0]
+				gext["id"] = dbxref[1]
+				gext["relationship"] = m[1]
+				gext["digest"] = digest
+				sqlite.buckets["gpad_extension"].Push(gext)
+			}
+		}
+	} else {
+		if m := er.FindStringSubmatch(d[10]); m != nil {
+			dbxref := strings.Split(m[2], ":")
+			gext["db"] = dbxref[0]
+			gext["id"] = dbxref[1]
+			gext["relationship"] = m[1]
+			gext["digest"] = digest
+			sqlite.buckets["gpad_extension"].Push(gext)
 		}
 	}
 }
