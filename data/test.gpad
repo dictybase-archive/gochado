@@ -9,4 +9,6 @@ dictyBase	DDB_G0292036	part_of	GO:0005615	GO_REF:0000002	ECO:0000245			20131010	
 dictyBase	DDB_G0292036	part_of	GO:0005829	GO_REF:0000002	ECO:0000314			20131010	dictyBase		go_evidence=IDA
 dictyBase	DDB_G0271142	part_of	GO:0015629	GO_REF:0000002	ECO:0000304			20050304	dictyBase		go_evidence=TAS
 dictyBase	DDB_G0278727	involved_in	GO:0031152	GO_REF:0000002|GO_REF:0000033	ECO:0000304			20050207	dictyBase		go_evidence=TAS
+dictyBase	DDB_G0286189	colocalizes_with	GO:0005829	GO_REF:0000002	ECO:0000314			20130301	dictyBase	exists_during(GO:0071320)	go_evidence=IDA|id=2113486029|curator_name=Petra Fey
+
 
