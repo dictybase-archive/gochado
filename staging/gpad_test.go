@@ -73,8 +73,8 @@ func TestGpadStagingSqlite(t *testing.T) {
 	if staging.buckets["gpad_reference"].Count() != 1 {
 		t.Errorf("got %d data row expected %d under %s key", staging.buckets["gpad_reference"].Count(), 1, "gpad_reference")
 	}
-	if staging.buckets["gpad_withfrom"].Count() != 6 {
-		t.Errorf("got %d data row expected %d under %s key", staging.buckets["gpad_withfrom"].Count(), 6, "gpad_withfrom")
+	if staging.buckets["gpad_withfrom"].Count() != 5 {
+		t.Errorf("got %d data row expected %d under %s key", staging.buckets["gpad_withfrom"].Count(), 5, "gpad_withfrom")
 	}
 
 	//bulkload testing
@@ -102,6 +102,13 @@ func TestGpadStagingSqlite(t *testing.T) {
 	}
 	if e.Counter != 5 {
 		t.Errorf("expected %d got %d", 5, e.Counter)
+	}
+	err = dbh.Get(&e, "SELECT COUNT(*) counter FROM temp_gpad_extension")
+	if err != nil {
+		t.Errorf("should have executed the query %s", err)
+	}
+	if e.Counter != 1 {
+		t.Errorf("expected %d got %d", 1, e.Counter)
 	}
 
 	//test individual row
@@ -136,6 +143,8 @@ func TestGpadStagingSqlite(t *testing.T) {
 	if err != nil {
 		t.Errorf("should have executed the query %s", err)
 	}
+
+	//gpad_reference
 	gr := gref{}
 	err = dbh.Get(&gr, "SELECT publication_id, pubplace FROM temp_gpad_reference WHERE digest = $1", gd.Digest)
 	if err != nil {
@@ -148,6 +157,7 @@ func TestGpadStagingSqlite(t *testing.T) {
 		t.Errorf("expected %s got %s", "GO_REF", gr.Pubplace)
 	}
 
+	// gpad_withfrom
 	err = dbh.Get(&gd, "SELECT digest FROM temp_gpad WHERE id = $1 AND evidence_code = $2", "DDB_G0272004", "0000318")
 	if err != nil {
 		t.Errorf("should have executed the query %s", err)
@@ -160,5 +170,24 @@ func TestGpadStagingSqlite(t *testing.T) {
 	}
 	if gw.Withfrom != "PANTHER:PTN000012953" {
 		t.Errorf("expected %s got %s", "PANTHER:PTN000012953", gw.Withfrom)
+	}
+
+	//gpad_extension
+	q := `SELECT tgext.relationship, tgext.db, tgext.id FROM temp_gpad_extension
+	tgext JOIN temp_gpad ON tgext.digest = temp_gpad.digest
+	WHERE temp_gpad.id = $1
+	`
+	type gext struct {
+		Relationship string
+		Db           string
+		Id           string
+	}
+	ge := gext{}
+	err = dbh.Get(&ge, q, "DDB_G0286189")
+	if err != nil {
+		t.Errorf("should have executed the query %s", err)
+	}
+	if ge.Relationship != "exists_during" {
+		t.Errorf("expected %s got %s", "exists", ge.Relationship)
 	}
 }
