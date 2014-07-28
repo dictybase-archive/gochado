@@ -2,6 +2,7 @@ package staging
 
 import (
 	"bytes"
+	"log"
 	"reflect"
 	"testing"
 
@@ -11,33 +12,67 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-func TestGpadStagingSqlite(t *testing.T) {
-	RegisterTestingT(t)
+type stagingTest struct {
+	rice    *rice.Box
+	staging *Sqlite
+	chado   *testchado.Sqlite
+}
+
+func SetUpSqliteTest() *stagingTest {
 	chado := testchado.NewSQLiteManager()
 	chado.DeploySchema()
-	defer chado.DropSchema()
-
-	dbh := chado.DBHandle()
-
-	// test struct creation and table handling
 	r, err := rice.FindBox("../data")
 	if err != nil {
-		t.Errorf("could not open rice box error: %s", err)
+		log.Fatalf("could not open rice box error: %s", err)
 	}
 	str, err := r.String("sqlite_gpad.ini")
 	if err != nil {
-		t.Errorf("could not open file sqlite_gpad.ini from rice box error:%s", err)
+		log.Fatalf("could not open file sqlite_gpad.ini from rice box error:%s", err)
 	}
-	staging := NewStagingSqlite(dbh, gochado.NewSqlParserFromString(str))
+	staging := NewStagingSqlite(chado.DBHandle(), gochado.NewSqlParserFromString(str))
+	staging.CreateTables()
+	return &stagingTest{
+		rice:    r,
+		staging: staging,
+		chado:   chado,
+	}
+}
+
+func SetUpSqliteBulkTest() *stagingTest {
+	st := SetUpSqliteTest()
+	gpstr, err := st.rice.String("test.gpad")
+	if err != nil {
+		log.Fatal(err)
+	}
+	buff := bytes.NewBufferString(gpstr)
+	for {
+		line, err := buff.ReadString('\n')
+		if err != nil {
+			break
+		}
+		st.staging.AddDataRow(line)
+	}
+	return st
+}
+
+func TestGpadStagingSqliteTblBuffer(t *testing.T) {
+	// Set up for testing
+	RegisterTestingT(t)
+	st := SetUpSqliteTest()
+	staging := st.staging
+	r := st.rice
+	dbh := st.chado.DBHandle()
+	defer st.chado.DropSchema()
+
+	// test struct creation and table handling
 	ln := len(staging.sections)
 	if ln != 5 {
 		t.Errorf("Expecting 5 entries got %d", ln)
 	}
-	staging.CreateTables()
 	for _, sec := range staging.tables {
 		row := dbh.QueryRowx("SELECT name FROM sqlite_temp_master WHERE type = 'table' AND name = $1", sec)
 		var tbl string
-		err = row.Scan(&tbl)
+		err := row.Scan(&tbl)
 		if err != nil {
 			t.Errorf("Could not retrieve temp table %s: %s", sec, err)
 		}
@@ -76,12 +111,20 @@ func TestGpadStagingSqlite(t *testing.T) {
 	if staging.buckets["gpad_withfrom"].Count() != 5 {
 		t.Errorf("got %d data row expected %d under %s key", staging.buckets["gpad_withfrom"].Count(), 5, "gpad_withfrom")
 	}
+}
+
+func TestGpadStagingSqliteBulkCount(t *testing.T) {
+	// Set up for testing
+	RegisterTestingT(t)
+	st := SetUpSqliteBulkTest()
+	dbh := st.chado.DBHandle()
+	defer st.chado.DropSchema()
 
 	//bulkload testing
-	staging.BulkLoad()
+	st.staging.BulkLoad()
 	type entries struct{ Counter int }
 	e := entries{}
-	err = dbh.Get(&e, "SELECT COUNT(*) counter FROM temp_gpad")
+	err := dbh.Get(&e, "SELECT COUNT(*) counter FROM temp_gpad")
 	if err != nil {
 		t.Errorf("should have executed the query %s", err)
 	}
@@ -110,6 +153,16 @@ func TestGpadStagingSqlite(t *testing.T) {
 	if e.Counter != 1 {
 		t.Errorf("expected %d got %d", 1, e.Counter)
 	}
+}
+
+func TestGpadStagingSqliteBulkIndividual(t *testing.T) {
+	// Set up for testing
+	RegisterTestingT(t)
+	st := SetUpSqliteBulkTest()
+	chado := st.chado
+	dbh := chado.DBHandle()
+	defer chado.DropSchema()
+	st.staging.BulkLoad()
 
 	//test individual row
 	type gpad struct {
@@ -121,7 +174,7 @@ func TestGpadStagingSqlite(t *testing.T) {
 		Date      string `db:"date_curated"`
 	}
 	g := gpad{}
-	err = dbh.Get(&g, "SELECT qualifier, publication_id, pubplace, evidence_code, assigned_by, date_curated FROM temp_gpad where id = ?", "DDB_G0272003")
+	err := dbh.Get(&g, "SELECT qualifier, publication_id, pubplace, evidence_code, assigned_by, date_curated FROM temp_gpad where id = ?", "DDB_G0272003")
 	if err != nil {
 		t.Errorf("should have executed the query %s", err)
 	}
