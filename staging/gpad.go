@@ -191,7 +191,7 @@ func (sqlite *Sqlite) CreateTables() {
 	for _, section := range sqlite.sections {
 		csec = append(csec, sqlite.sqlparser.GetSection(section)+";")
 	}
-	dbh.Execf(strings.Join(csec, "\n"))
+	dbh.MustExec(strings.Join(csec, "\n"))
 }
 
 func (sqlite *Sqlite) DropTables() {
@@ -220,7 +220,7 @@ func (sqlite *Sqlite) BulkLoad() {
 			fstmt := fmt.Sprintf("%s VALUES(%s);\n", pstmt, strings.Join(ElementToValueString(element, columns), ","))
 			str.WriteString(fstmt)
 		}
-		sqlite.ChadoHelper.ChadoHandler.Execf(str.String())
+		sqlite.ChadoHelper.ChadoHandler.MustExec(str.String())
 	}
 }
 

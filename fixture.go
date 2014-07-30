@@ -4,7 +4,6 @@ import (
 	"log"
 	"strings"
 
-	"github.com/dictybase/testchado"
 	"github.com/jinzhu/gorm"
 	"gopkg.in/dictybase/testchado.v1"
 )
