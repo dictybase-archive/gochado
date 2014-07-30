@@ -1,0 +1,47 @@
+{
+	"ImportPath": "github.com/dictybase/gochado",
+	"GoVersion": "go1.3",
+	"Packages": [
+		"./..."
+	],
+	"Deps": [
+		{
+			"ImportPath": "bitbucket.org/kardianos/osext",
+			"Comment": "null-9",
+			"Rev": "364fb577de68fb646c4cb39cc0e09c887ee16376"
+		},
+		{
+			"ImportPath": "github.com/GeertJohan/go.rice",
+			"Rev": "9b964080d74b962d9de07a25877a2c24f62f620a"
+		},
+		{
+			"ImportPath": "github.com/daaku/go.zipexe",
+			"Rev": "44882fc939f4c58d87a60de34796c6cfb9623269"
+		},
+		{
+			"ImportPath": "github.com/dictybase/testchado",
+			"Comment": "v1.1.0",
+			"Rev": "2c4292cba41b84d72b5183bad2c3903f184dc2bc"
+		},
+		{
+			"ImportPath": "github.com/jinzhu/gorm",
+			"Rev": "df4a00a945aa2dfb1de210fafec6da4dc02a496d"
+		},
+		{
+			"ImportPath": "github.com/jmoiron/sqlx",
+			"Rev": "570d28b26fada72e69c3cbc32d9de6842c811495"
+		},
+		{
+			"ImportPath": "github.com/lib/pq",
+			"Rev": "9dd136abd24227c7af773a9c32ef7eca53609202"
+		},
+		{
+			"ImportPath": "github.com/mattn/go-sqlite3",
+			"Rev": "1704ea522da54566fb41576db328ea3c44f702d8"
+		},
+		{
+			"ImportPath": "github.com/onsi/gomega",
+			"Rev": "eb4854fbb3636f8ca054586384addf7f1b048466"
+		}
+	]
+}

@@ -1,163 +1,206 @@
 package staging
 
 import (
-    "bytes"
-    "github.com/GeertJohan/go.rice"
-    "github.com/dictybase/gochado"
-    "github.com/dictybase/testchado"
-    . "github.com/onsi/gomega"
-    "reflect"
-    "testing"
+	"bytes"
+	"log"
+	"reflect"
+	"testing"
+
+	"github.com/GeertJohan/go.rice"
+	"github.com/dictybase/gochado"
+	. "github.com/onsi/gomega"
+	"gopkg.in/dictybase/testchado.v1"
 )
 
-func TestGpadStagingSqlite(t *testing.T) {
-    RegisterTestingT(t)
-    chado := testchado.NewSQLiteManager()
-    chado.DeploySchema()
-    defer chado.DropSchema()
+type stagingTest struct {
+	rice    *rice.Box
+	staging *Sqlite
+	chado   *testchado.Sqlite
+}
 
-    dbh := chado.DBHandle()
+func SetUpSqliteTest() *stagingTest {
+	chado := testchado.NewSQLiteManager()
+	chado.DeploySchema()
+	r, err := rice.FindBox("../data")
+	if err != nil {
+		log.Fatalf("could not open rice box error: %s", err)
+	}
+	str, err := r.String("sqlite_gpad.ini")
+	if err != nil {
+		log.Fatalf("could not open file sqlite_gpad.ini from rice box error:%s", err)
+	}
+	staging := NewStagingSqlite(chado.DBHandle(), gochado.NewSqlParserFromString(str))
+	staging.CreateTables()
+	return &stagingTest{
+		rice:    r,
+		staging: staging,
+		chado:   chado,
+	}
+}
 
-    // test struct creation and table handling
-    r, err := rice.FindBox("../data")
-    if err != nil {
-        t.Errorf("could not open rice box error: %s", err)
-    }
-    str, err := r.String("sqlite_gpad.ini")
-    if err != nil {
-        t.Errorf("could not open file sqlite_gpad.ini from rice box error:%s", err)
-    }
-    staging := NewStagingSqlite(dbh, gochado.NewSqlParserFromString(str))
-    ln := len(staging.sections)
-    if ln != 4 {
-        t.Errorf("Expecting 3 entries got %d", ln)
-    }
-    staging.CreateTables()
-    for _, sec := range staging.tables {
-        row := dbh.QueryRowx("SELECT name FROM sqlite_temp_master WHERE type = 'table' AND name = $1", sec)
-        var tbl string
-        err = row.Scan(&tbl)
-        if err != nil {
-            t.Errorf("Could not retrieve temp table %s: %s", sec, err)
-        }
-        if tbl != sec {
-            t.Errorf("should have retrieved table %s", sec)
-        }
-    }
+func SetUpSqliteBulkTest() *stagingTest {
+	st := SetUpSqliteTest()
+	gpstr, err := st.rice.String("test.gpad")
+	if err != nil {
+		log.Fatal(err)
+	}
+	buff := bytes.NewBufferString(gpstr)
+	for {
+		line, err := buff.ReadString('\n')
+		if err != nil {
+			break
+		}
+		st.staging.AddDataRow(line)
+	}
+	st.staging.BulkLoad()
+	return st
+}
 
-    // test data buffering
-    gpstr, err := r.String("test.gpad")
-    if err != nil {
-        t.Error(err)
-    }
-    buff := bytes.NewBufferString(gpstr)
-    for {
-        line, err := buff.ReadString('\n')
-        if err != nil {
-            break
-        }
-        staging.AddDataRow(line)
-    }
-    if len(staging.buckets) != 4 {
-        t.Errorf("should have 4 buckets got %d", len(staging.buckets))
-    }
-    for _, name := range []string{"gpad", "gpad_reference", "gpad_withfrom"} {
-        if _, ok := staging.buckets[name]; !ok {
-            t.Errorf("bucket %s do not exist", name)
-        }
-    }
-    if staging.buckets["gpad"].Count() != 10 {
-        t.Errorf("should have %d data row under %s key", 10, "gpad")
-    }
-    if staging.buckets["gpad_reference"].Count() != 1 {
-        t.Errorf("got %d data row expected %d under %s key", staging.buckets["gpad_reference"].Count(), 1, "gpad_reference")
-    }
-    if staging.buckets["gpad_withfrom"].Count() != 5 {
-        t.Errorf("got %d data row expected %d under %s key", staging.buckets["gpad_withfrom"].Count(), 5, "gpad_withfrom")
-    }
+func TestGpadStagingSqliteTblBuffer(t *testing.T) {
+	// Set up for testing
+	RegisterTestingT(t)
+	st := SetUpSqliteTest()
+	staging := st.staging
+	r := st.rice
+	dbh := st.chado.DBHandle()
+	defer st.chado.DropSchema()
 
-    //bulkload testing
-    staging.BulkLoad()
-    type entries struct{ Counter int }
-    e := entries{}
-    err = dbh.Get(&e, "SELECT COUNT(*) counter FROM temp_gpad")
-    if err != nil {
-        t.Errorf("should have executed the query %s", err)
-    }
-    //test by matching total entries in tables
-    if e.Counter != 10 {
-        t.Errorf("expected %d got %d", 10, e.Counter)
-    }
-    err = dbh.Get(&e, "SELECT COUNT(*) counter FROM temp_gpad_reference")
-    if err != nil {
-        t.Errorf("should have executed the query %s", err)
-    }
-    if e.Counter != 1 {
-        t.Errorf("expected %d got %d", 1, e.Counter)
-    }
-    err = dbh.Get(&e, "SELECT COUNT(*) counter FROM temp_gpad_withfrom")
-    if err != nil {
-        t.Errorf("should have executed the query %s", err)
-    }
-    if e.Counter != 5 {
-        t.Errorf("expected %d got %d", 5, e.Counter)
-    }
+	// test struct creation and table handling
+	Expect(staging.sections).Should(HaveLen(5))
+	for _, sec := range staging.tables {
+		row := dbh.QueryRowx("SELECT name FROM sqlite_temp_master WHERE type = 'table' AND name = $1", sec)
+		var tbl string
+		err := row.Scan(&tbl)
+		Expect(err).ShouldNot(HaveOccurred())
+		Expect(tbl).Should(Equal(sec))
+	}
 
-    //test individual row
-    type gpad struct {
-        Qualifier string
-        Pubid     string `db:"publication_id"`
-        Pubplace  string `db:"pubplace"`
-        Evidence  string `db:"evidence_code"`
-        Assigned  string `db:"assigned_by"`
-        Date      string `db:"date_curated"`
-    }
-    g := gpad{}
-    err = dbh.Get(&g, "SELECT qualifier, publication_id, pubplace, evidence_code, assigned_by, date_curated FROM temp_gpad where id = ?", "DDB_G0272003")
-    if err != nil {
-        t.Errorf("should have executed the query %s", err)
-    }
-    el := reflect.ValueOf(&g).Elem()
-    for k, v := range map[string]string{"Qualifier": "enables", "Pubid": "0000002", "Pubplace": "GO_REF", "Evidence": "0000256", "Assigned": "InterPro", "Date": "20140222"} {
-        sv := el.FieldByName(k).String()
-        if sv != v {
-            t.Errorf("Expected %s Got %s\n", sv, v)
-        }
-    }
+	// test data buffering
+	gpstr, err := r.String("test.gpad")
+	Expect(err).ShouldNot(HaveOccurred())
+	buff := bytes.NewBufferString(gpstr)
+	for {
+		line, err := buff.ReadString('\n')
+		if err != nil {
+			break
+		}
+		staging.AddDataRow(line)
+	}
+	Expect(staging.buckets).Should(HaveLen(5))
+	for _, name := range []string{"gpad", "gpad_reference", "gpad_withfrom", "gpad_extension"} {
+		Expect(staging.buckets).Should(HaveKey(name))
+	}
+	Expect(staging.buckets["gpad"].Count()).To(Equal(12))
+	Expect(staging.buckets["gpad_reference"].Count()).To(Equal(1))
+	Expect(staging.buckets["gpad_withfrom"].Count()).To(Equal(5))
+	Expect(staging.buckets["gpad_extension"].Count()).To(Equal(3))
+}
 
-    type gdigest struct{ Digest string }
-    type gref struct {
-        Pubid    string `db:"publication_id"`
-        Pubplace string `db:"pubplace"`
-    }
-    gd := gdigest{}
-    err = dbh.Get(&gd, "SELECT digest FROM temp_gpad WHERE id = $1", "DDB_G0278727")
-    if err != nil {
-        t.Errorf("should have executed the query %s", err)
-    }
-    gr := gref{}
-    err = dbh.Get(&gr, "SELECT publication_id, pubplace FROM temp_gpad_reference WHERE digest = $1", gd.Digest)
-    if err != nil {
-        t.Errorf("should have executed the query %s", err)
-    }
-    if gr.Pubid != "0000033" {
-        t.Errorf("expected %s got %s", "0000033", gr.Pubid)
-    }
-    if gr.Pubplace != "GO_REF" {
-        t.Errorf("expected %s got %s", "GO_REF", gr.Pubplace)
-    }
+func TestGpadStagingSqliteBulkCount(t *testing.T) {
+	// Set up for testing
+	RegisterTestingT(t)
+	st := SetUpSqliteBulkTest()
+	dbh := st.chado.DBHandle()
+	defer st.chado.DropSchema()
 
-    err = dbh.Get(&gd, "SELECT digest FROM temp_gpad WHERE id = $1 AND evidence_code = $2", "DDB_G0272004", "0000318")
-    if err != nil {
-        t.Errorf("should have executed the query %s", err)
-    }
-    type gwithfrom struct{ Withfrom string }
-    gw := gwithfrom{}
-    err = dbh.Get(&gw, "SELECT withfrom FROM temp_gpad_withfrom WHERE digest = $1", gd.Digest)
-    if err != nil {
-        t.Errorf("should have executed the query %s", err)
-    }
-    if gw.Withfrom != "PANTHER:PTN000012953" {
-        t.Errorf("expected %s got %s", "PANTHER:PTN000012953", gw.Withfrom)
-    }
+	type entries struct{ Counter int }
+	e := entries{}
+	err := dbh.Get(&e, "SELECT COUNT(*) counter FROM temp_gpad")
+	Expect(err).ShouldNot(HaveOccurred())
+	//test by matching total entries in tables
+	Expect(e.Counter).Should(Equal(12))
+
+	err = dbh.Get(&e, "SELECT COUNT(*) counter FROM temp_gpad_reference")
+	Expect(err).ShouldNot(HaveOccurred())
+	Expect(e.Counter).Should(Equal(1))
+
+	err = dbh.Get(&e, "SELECT COUNT(*) counter FROM temp_gpad_withfrom")
+	Expect(err).ShouldNot(HaveOccurred())
+	Expect(e.Counter).Should(Equal(5))
+
+	err = dbh.Get(&e, "SELECT COUNT(*) counter FROM temp_gpad_extension")
+	Expect(err).ShouldNot(HaveOccurred())
+	Expect(e.Counter).Should(Equal(3))
+}
+
+func TestGpadStagingSqliteBulkIndividual(t *testing.T) {
+	// Set up for testing
+	RegisterTestingT(t)
+	st := SetUpSqliteBulkTest()
+	chado := st.chado
+	dbh := chado.DBHandle()
+	defer chado.DropSchema()
+
+	//test individual row
+	type gpad struct {
+		Qualifier string
+		Pubid     string `db:"publication_id"`
+		Pubplace  string `db:"pubplace"`
+		Evidence  string `db:"evidence_code"`
+		Assigned  string `db:"assigned_by"`
+		Date      string `db:"date_curated"`
+	}
+	g := gpad{}
+	err := dbh.Get(&g, "SELECT qualifier, publication_id, pubplace, evidence_code, assigned_by, date_curated FROM temp_gpad where id = ?", "DDB_G0272003")
+	Expect(err).ShouldNot(HaveOccurred())
+	el := reflect.ValueOf(&g).Elem()
+	for k, v := range map[string]string{"Qualifier": "enables", "Pubid": "0000002", "Pubplace": "GO_REF", "Evidence": "0000256", "Assigned": "InterPro", "Date": "20140222"} {
+		sv := el.FieldByName(k).String()
+		Expect(sv).Should(Equal(v))
+	}
+
+	type gdigest struct{ Digest string }
+	type gref struct {
+		Pubid    string `db:"publication_id"`
+		Pubplace string `db:"pubplace"`
+	}
+	gd := gdigest{}
+	err = dbh.Get(&gd, "SELECT digest FROM temp_gpad WHERE id = $1", "DDB_G0278727")
+	Expect(err).ShouldNot(HaveOccurred())
+
+	//gpad_reference
+	gr := gref{}
+	err = dbh.Get(&gr, "SELECT publication_id, pubplace FROM temp_gpad_reference WHERE digest = $1", gd.Digest)
+	Expect(err).ShouldNot(HaveOccurred())
+	Expect(gr.Pubid).Should(Equal("0000033"))
+	Expect(gr.Pubplace).Should(Equal("GO_REF"))
+
+	// gpad_withfrom
+	err = dbh.Get(&gd, "SELECT digest FROM temp_gpad WHERE id = $1 AND evidence_code = $2", "DDB_G0272004", "0000318")
+	Expect(err).ShouldNot(HaveOccurred())
+	type gwithfrom struct{ Withfrom string }
+	gw := gwithfrom{}
+	err = dbh.Get(&gw, "SELECT withfrom FROM temp_gpad_withfrom WHERE digest = $1", gd.Digest)
+	Expect(err).ShouldNot(HaveOccurred())
+	Expect(gw.Withfrom).Should(Equal("PANTHER:PTN000012953"))
+
+	//gpad_extension
+	q := `SELECT tgext.relationship, tgext.db, tgext.id FROM temp_gpad_extension
+	tgext JOIN temp_gpad ON tgext.digest = temp_gpad.digest
+	WHERE temp_gpad.id = $1
+	`
+	type gext struct {
+		Relationship string
+		Db           string
+		Id           string
+		Digest       string
+	}
+	ge := gext{}
+	err = dbh.Get(&ge, q, "DDB_G0286189")
+	Expect(err).ShouldNot(HaveOccurred())
+	Expect(ge.Relationship).Should(Equal("exists_during"))
+	Expect(ge.Db).Should(Equal("GO"))
+
+	q2 := `SELECT tgext.relationship, tgext.db, tgext.id FROM temp_gpad_extension
+	tgext JOIN temp_gpad ON tgext.digest = temp_gpad.digest
+	WHERE temp_gpad.id = $1 AND tgext.db = $2
+	`
+	err = dbh.Get(&ge, q2, "DDB_G0285321", "UniProtKB")
+	Expect(err).ShouldNot(HaveOccurred())
+	Expect(ge.Relationship).Should(Equal("has_regulation_target"))
+	Expect(ge.Id).Should(Equal("Q54BD4"))
+	err = dbh.Get(&ge, q2, "DDB_G0285321", "CHEBI")
+	Expect(err).ShouldNot(HaveOccurred())
+	Expect(ge.Relationship).Should(Equal("in_presence_of"))
+	Expect(ge.Id).Should(Equal("64672"))
 }
