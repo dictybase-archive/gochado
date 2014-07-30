@@ -15,24 +15,17 @@
 			"Rev": "9b964080d74b962d9de07a25877a2c24f62f620a"
 		},
 		{
-			"ImportPath": "github.com/cybersiddhu/go-sqlite3",
-			"Rev": "ce42bf93df83088ae0f43809bdc18d8ce99d8361"
-		},
-		{
 			"ImportPath": "github.com/daaku/go.zipexe",
 			"Rev": "44882fc939f4c58d87a60de34796c6cfb9623269"
 		},
 		{
-			"ImportPath": "github.com/dictybase/gorm",
-			"Rev": "59f636cf075460a140911a1bea7e184c2f61ca4d"
-		},
-		{
 			"ImportPath": "github.com/dictybase/testchado",
-			"Rev": "452f869aa58d2424da7c0619350fd34f984d2050"
+			"Comment": "v1.1.0",
+			"Rev": "2c4292cba41b84d72b5183bad2c3903f184dc2bc"
 		},
 		{
-			"ImportPath": "github.com/jinzhu/gorm/dialect",
-			"Rev": "6d48c9357d8d3f4bb0f932cbd871c7d53d3d5f15"
+			"ImportPath": "github.com/jinzhu/gorm",
+			"Rev": "df4a00a945aa2dfb1de210fafec6da4dc02a496d"
 		},
 		{
 			"ImportPath": "github.com/jmoiron/sqlx",
@@ -41,6 +34,10 @@
 		{
 			"ImportPath": "github.com/lib/pq",
 			"Rev": "9dd136abd24227c7af773a9c32ef7eca53609202"
+		},
+		{
+			"ImportPath": "github.com/mattn/go-sqlite3",
+			"Rev": "1704ea522da54566fb41576db328ea3c44f702d8"
 		},
 		{
 			"ImportPath": "github.com/onsi/gomega",
