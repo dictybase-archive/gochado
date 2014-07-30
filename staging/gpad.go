@@ -159,12 +159,12 @@ func (sqlite *Sqlite) addExtensionDataRow(d []string, digest interface{}) {
 		}
 	}
 
-	gext := make(map[string]interface{})
 	if strings.Contains(d[10], "|") {
 		// Handle multiple values
 		aextn := strings.Split(d[10], "|")
 		for _, value := range aextn {
 			if m := er.FindStringSubmatch(value); m != nil {
+				gext := make(map[string]interface{})
 				dbxref := strings.Split(m[2], ":")
 				gext["db"] = dbxref[0]
 				gext["id"] = dbxref[1]
@@ -175,6 +175,7 @@ func (sqlite *Sqlite) addExtensionDataRow(d []string, digest interface{}) {
 		}
 	} else {
 		if m := er.FindStringSubmatch(d[10]); m != nil {
+			gext := make(map[string]interface{})
 			dbxref := strings.Split(m[2], ":")
 			gext["db"] = dbxref[0]
 			gext["id"] = dbxref[1]

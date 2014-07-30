@@ -183,9 +183,24 @@ func TestGpadStagingSqliteBulkIndividual(t *testing.T) {
 		Relationship string
 		Db           string
 		Id           string
+		Digest       string
 	}
 	ge := gext{}
 	err = dbh.Get(&ge, q, "DDB_G0286189")
 	Expect(err).ShouldNot(HaveOccurred())
 	Expect(ge.Relationship).Should(Equal("exists_during"))
+	Expect(ge.Db).Should(Equal("GO"))
+
+	q2 := `SELECT tgext.relationship, tgext.db, tgext.id FROM temp_gpad_extension
+	tgext JOIN temp_gpad ON tgext.digest = temp_gpad.digest
+	WHERE temp_gpad.id = $1 AND tgext.db = $2
+	`
+	err = dbh.Get(&ge, q2, "DDB_G0285321", "UniProtKB")
+	Expect(err).ShouldNot(HaveOccurred())
+	Expect(ge.Relationship).Should(Equal("has_regulation_target"))
+	Expect(ge.Id).Should(Equal("Q54BD4"))
+	err = dbh.Get(&ge, q2, "DDB_G0285321", "CHEBI")
+	Expect(err).ShouldNot(HaveOccurred())
+	Expect(ge.Relationship).Should(Equal("in_presence_of"))
+	Expect(ge.Id).Should(Equal("64672"))
 }
