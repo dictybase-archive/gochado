@@ -10,6 +10,7 @@ import (
 	"github.com/dictybase/gochado"
 	"github.com/dictybase/testchado"
 	. "github.com/onsi/gomega"
+	"gopkg.in/dictybase/testchado.v1"
 )
 
 type stagingTest struct {

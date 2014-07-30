@@ -6,6 +6,7 @@ import (
 
 	"github.com/dictybase/testchado"
 	"github.com/jinzhu/gorm"
+	"gopkg.in/dictybase/testchado.v1"
 )
 
 type GpadFixtureLoader struct {
