@@ -3,6 +3,7 @@ package gochado
 import (
 	"bytes"
 	"crypto/md5"
+	"database/sql"
 	"encoding/hex"
 	"fmt"
 	"io"
@@ -111,27 +112,30 @@ func (helper *ChadoHelper) FindOrCreateDbId(db string) (int, error) {
 	q := "SELECT db_id FROM db WHERE name = $1"
 	row := sqlx.QueryRowx(q, db)
 	var dbid int
-	_ = row.Scan(&dbid)
-	if dbid != 0 {
-		dbcache.Set(db, dbid)
-		return dbid, nil
-	}
-
-	tx := sqlx.MustBegin()
-	result := tx.MustExec("INSERT INTO db(name) VALUES($1)", db)
-	id64, err := result.LastInsertId()
+	err := row.Scan(&dbid)
 	if err != nil {
-		_ = tx.Rollback()
-		return 0, fmt.Errorf("error %s in retreiving db_id", err)
+		if err == sql.ErrNoRows {
+			tx := sqlx.MustBegin()
+			result := tx.MustExec("INSERT INTO db(name) VALUES($1)", db)
+			id64, err := result.LastInsertId()
+			if err != nil {
+				_ = tx.Rollback()
+				return 0, fmt.Errorf("error %s in retreiving db_id", err)
+			}
+			err = tx.Commit()
+			if err != nil {
+				_ = tx.Rollback()
+				return 0, fmt.Errorf("error %s in commiting record ", err)
+			}
+			id := int(id64)
+			dbcache.Set(db, id)
+			return id, nil
+		} else {
+			log.Fatal(err)
+		}
 	}
-	err = tx.Commit()
-	if err != nil {
-		_ = tx.Rollback()
-		return 0, fmt.Errorf("error %s in commiting record ", err)
-	}
-	id := int(id64)
-	dbcache.Set(db, id)
-	return id, nil
+	dbcache.Set(db, dbid)
+	return dbid, nil
 }
 
 // Given a cv namespace returns its primary key identifier. The lookup is done on
@@ -145,27 +149,32 @@ func (helper *ChadoHelper) FindOrCreateCvId(cv string) (int, error) {
 	q := "SELECT cv_id FROM cv WHERE name = $1"
 	row := sqlx.QueryRowx(q, cv)
 	var cvid int
-	_ = row.Scan(&cvid)
-	if cvid != 0 {
-		cvcache.Set(cv, cvid)
-		return cvid, nil
-	}
+	err := row.Scan(&cvid)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			tx := sqlx.MustBegin()
+			result := tx.MustExec("INSERT INTO cv(name) VALUES($1)", cv)
+			id64, err := result.LastInsertId()
+			if err != nil {
+				_ = tx.Rollback()
+				return 0, err
+			}
+			err = tx.Commit()
+			if err != nil {
+				_ = tx.Rollback()
+				return 0, err
+			}
+			id := int(id64)
+			cvcache.Set(cv, id)
+			return id, nil
 
-	tx := sqlx.MustBegin()
-	result := tx.MustExec("INSERT INTO cv(name) VALUES($1)", cv)
-	id64, err := result.LastInsertId()
-	if err != nil {
-		_ = tx.Rollback()
-		return 0, err
+		} else {
+			log.Fatal(err)
+		}
 	}
-	err = tx.Commit()
-	if err != nil {
-		_ = tx.Rollback()
-		return 0, err
-	}
-	id := int(id64)
-	cvcache.Set(cv, id)
-	return id, nil
+	cvcache.Set(cv, cvid)
+	return cvid, nil
+
 }
 
 func (helper *ChadoHelper) FindCvtermId(cv, cvt string) (int, error) {
