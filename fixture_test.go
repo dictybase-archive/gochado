@@ -7,9 +7,11 @@ import (
 
 	"github.com/GeertJohan/go.rice"
 	"github.com/dictybase/testchado"
+	. "github.com/onsi/gomega"
 )
 
 func TestGpadFixtureLoader(t *testing.T) {
+	RegisterTestingT(t)
 	chado := testchado.NewDBManager()
 	chado.DeploySchema()
 	_ = chado.LoadPresetFixture("eco")
@@ -31,9 +33,7 @@ func TestGpadFixtureLoader(t *testing.T) {
 	}
 	f := NewGpadFixtureLoader(chado)
 	g := f.LoadGenes(genes)
-	if len(g) != 7 {
-		log.Fatalf("expected %d genes got %d", 5, len(g))
-	}
+	Expect(g).Should(HaveLen(7), "expected 7 genes")
 
 	var gorefs []string
 	err = dec.Decode(&gorefs)
@@ -41,9 +41,7 @@ func TestGpadFixtureLoader(t *testing.T) {
 		log.Fatal(err)
 	}
 	p := f.LoadPubIds(gorefs)
-	if len(p) != 3 {
-		log.Fatalf("expected %d pubs got %d", 3, len(p))
-	}
+	Expect(p).Should(HaveLen(4), "expected 4 pubs")
 
 	var goids map[string][]string
 	err = dec.Decode(&goids)
@@ -51,23 +49,17 @@ func TestGpadFixtureLoader(t *testing.T) {
 		log.Fatal(err)
 	}
 	goterm := f.LoadGoIds(goids)
-	if len(goterm) != 8 {
-		t.Errorf("expected %d go terms got %d", 8, len(goterm))
-	}
+	Expect(goterm).Should(HaveLen(9), "expected 9 goterms")
+
 	gorm := f.gorm
 	dbxref := Dbxref{}
 	db := Db{}
 	for _, cvterm := range goterm {
 		gorm.Model(&cvterm).Related(&dbxref)
 		gorm.First(&db, dbxref.DbId)
-		if db.Name != "GO" {
-			t.Errorf("expect GO got %s", db.Name)
-		}
+		Expect(db.Name).Should(Equal("GO"), "Expected GO")
 	}
 
 	mterm := f.LoadMiscCvterms("gene_ontology_association")
-	if len(mterm) != 4 {
-		t.Errorf("expected %d misc terms got %d", 4, len(mterm))
-	}
-
+	Expect(mterm).Should(HaveLen(4), "expected 4 misc terms")
 }
