@@ -17,24 +17,53 @@ import (
 	. "github.com/onsi/gomega"
 )
 
+type chadoTest struct {
+	rice   *rice.Box
+	chado  *testchado.Sqlite
+	parser *gochado.SqlParser
+}
+
+func setUpSqliteTest() *chadoTest {
+	chado := testchado.NewSQLiteManager()
+	RegisterDBHandler(chado)
+	chado.DeploySchema()
+	chado.LoadPresetFixture("eco")
+	b := rice.MustFindBox("../data")
+	str, err := b.String("sqlite_gpad.ini")
+	if err != nil {
+		log.Fatalf("could not open file sqlite_gpad.ini from rice box error:%s", err)
+	}
+	// Loads test gpad file in staging
+	LoadGpadStagingSqlite(chado, b, str)
+	// Loads fixtures needed for testing in chado
+	LoadGpadChadoFixtureSqlite(chado, b)
+
+	return &chadoTest{
+		rice:   b,
+		chado:  chado,
+		parser: gochado.NewSqlParserFromString(str),
+	}
+}
+
 // Load fixtures for testing GPAD loading. It loads the following fixtures
 //  Gene ids
 //	Reference/Publications
 //	Ontology terms/ids
 //	Various ontology terms under gene_ontology_association namespace
-func LoadGpadChadoFixtureSqlite(chado testchado.DBManager, t *testing.T, b *rice.Box) {
+func LoadGpadChadoFixtureSqlite(chado testchado.DBManager, b *rice.Box) {
 	//get the gob file
 	r, err := b.Open("fixture.gob")
 	defer r.Close()
 	if err != nil {
-		t.Error("Could not get gob file fixture.gob")
+		log.Fatal("Could not get gob file fixture.gob")
+
 	}
 	// Now decode and get the data
 	dec := gob.NewDecoder(r)
 	var genes []string
 	err = dec.Decode(&genes)
 	if err != nil {
-		t.Error(err)
+		log.Fatal(err)
 	}
 	f := gochado.NewGpadFixtureLoader(chado)
 	_ = f.LoadGenes(genes)
@@ -42,33 +71,29 @@ func LoadGpadChadoFixtureSqlite(chado testchado.DBManager, t *testing.T, b *rice
 	var gorefs []string
 	err = dec.Decode(&gorefs)
 	if err != nil {
-		t.Error(err)
+		log.Fatal(err)
 	}
 	_ = f.LoadPubIds(gorefs)
 
 	var goids map[string][]string
 	err = dec.Decode(&goids)
 	if err != nil {
-		t.Error(err)
+		log.Fatal(err)
 	}
 	_ = f.LoadGoIds(goids)
 	_ = f.LoadMiscCvterms("gene_ontology_association")
 }
 
 // Loads GPAD test file to staging tables
-func LoadGpadStagingSqlite(chado testchado.DBManager, t *testing.T, b *rice.Box) {
+func LoadGpadStagingSqlite(chado testchado.DBManager, b *rice.Box, sql string) {
 	// test struct creation and table handling
-	str, err := b.String("sqlite_gpad.ini")
-	if err != nil {
-		t.Errorf("could not open file sqlite_gpad.ini from rice box error:%s", err)
-	}
-	staging := staging.NewStagingSqlite(chado.DBHandle(), gochado.NewSqlParserFromString(str))
+	staging := staging.NewStagingSqlite(chado.DBHandle(), gochado.NewSqlParserFromString(sql))
 	staging.CreateTables()
 
 	// test data buffering
 	gpstr, err := b.String("test.gpad")
 	if err != nil {
-		t.Error(err)
+		log.Fatal(err)
 	}
 	buff := bytes.NewBufferString(gpstr)
 	for {
@@ -84,39 +109,25 @@ func LoadGpadStagingSqlite(chado testchado.DBManager, t *testing.T, b *rice.Box)
 
 func TestGpadChadoSqlite(t *testing.T) {
 	RegisterTestingT(t)
-	chado := testchado.NewSQLiteManager()
-	RegisterDBHandler(chado)
-	chado.DeploySchema()
-	chado.LoadPresetFixture("eco")
 	//Setup
-	b := rice.MustFindBox("../data")
-	LoadGpadStagingSqlite(chado, t, b)
-	LoadGpadChadoFixtureSqlite(chado, t, b)
-
+	setup := setUpSqliteTest()
+	chado := setup.chado
+	p := setup.parser
 	//Teardown
 	defer chado.DropSchema()
 
 	dbh := chado.DBHandle()
-	str, err := b.String("sqlite_gpad.ini")
-	if err != nil {
-		t.Errorf("could not open file sqlite_gpad.ini from rice box error:%s", err)
-	}
-	p := gochado.NewSqlParserFromString(str)
 	type entries struct{ Counter int }
 	e := entries{}
-	err = dbh.Get(&e, p.GetSection("select_latest_goa_count_chado"), "Dictyostelium", "disocideum")
-	if err != nil {
-		t.Errorf("should have run the query error: %s", err)
-	}
+	err := dbh.Get(&e, p.GetSection("select_latest_goa_count_chado"), "Dictyostelium", "disocideum")
+	Expect(err).ShouldNot(HaveOccurred())
 
 	grecord := 0
 	if e.Counter > 0 {
 		type lt struct{ Latest int }
 		l := lt{}
 		err = dbh.Get(&l, p.GetSection("select_latest_goa_bydate_chado"), "Dictyostelium", "disocideum")
-		if err != nil {
-			t.Errorf("should have run the query error: %s", err)
-		}
+		Expect(err).ShouldNot(HaveOccurred())
 		grecord = l.Latest
 	}
 
@@ -132,9 +143,8 @@ func TestGpadChadoSqlite(t *testing.T) {
 	}
 	g := []gpad{}
 	err = dbh.Select(&g, "SELECT id, goid, publication_id, pubplace, evidence_code FROM temp_gpad_new")
-	if err != nil {
-		t.Errorf("error in fetching rows from temp_gpad_new %s\n", err)
-	}
+	Expect(err).ShouldNot(HaveOccurred())
+
 	type xref struct {
 		Id string `db:"dbxref_id"`
 	}
@@ -224,24 +234,14 @@ func TestGpadChadoSqlite(t *testing.T) {
 
 func TestGpadChadoSqliteBulk(t *testing.T) {
 	RegisterTestingT(t)
-	chado := testchado.NewSQLiteManager()
-	RegisterDBHandler(chado)
-	chado.DeploySchema()
-	chado.LoadPresetFixture("eco")
 	//Setup
-	b := rice.MustFindBox("../data")
-	LoadGpadStagingSqlite(chado, t, b)
-	LoadGpadChadoFixtureSqlite(chado, t, b)
+	setup := setUpSqliteTest()
+	chado := setup.chado
+	dbh := chado.DBHandle()
 	//Teardown
 	defer chado.DropSchema()
 
-	dbh := chado.DBHandle()
-	str, err := b.String("sqlite_gpad.ini")
-	if err != nil {
-		t.Errorf("could not open file sqlite_gpad.ini from rice box error:%s", err)
-	}
-	p := gochado.NewSqlParserFromString(str)
-	sqlite := NewChadoSqlite(dbh, p, &gochado.Organism{Genus: "Dictyostelium", Species: "discoideum"})
+	sqlite := NewChadoSqlite(dbh, setup.parser, &gochado.Organism{Genus: "Dictyostelium", Species: "discoideum"})
 	sqlite.BulkLoad()
 	Expect("SELECT COUNT(*) FROM temp_gpad_new").Should(HaveCount(12))
 	Expect("SELECT COUNT(*) FROM feature_cvterm").Should(HaveCount(12))
