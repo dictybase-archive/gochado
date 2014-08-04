@@ -3,6 +3,8 @@ package chado
 import (
 	"bytes"
 	"encoding/gob"
+	"log"
+	"os"
 	"testing"
 
 	"github.com/GeertJohan/go.rice"
@@ -10,9 +12,16 @@ import (
 	"github.com/dictybase/gochado/staging"
 	"github.com/dictybase/testchado"
 	. "github.com/dictybase/testchado/matchers"
+	"github.com/jmoiron/sqlx"
+	"github.com/olekukonko/tablewriter"
 	. "github.com/onsi/gomega"
 )
 
+// Load fixtures for testing GPAD loading. It loads the following fixtures
+//  Gene ids
+//	Reference/Publications
+//	Ontology terms/ids
+//	Various ontology terms under gene_ontology_association namespace
 func LoadGpadChadoFixtureSqlite(chado testchado.DBManager, t *testing.T, b *rice.Box) {
 	//get the gob file
 	r, err := b.Open("fixture.gob")
@@ -46,6 +55,7 @@ func LoadGpadChadoFixtureSqlite(chado testchado.DBManager, t *testing.T, b *rice
 	_ = f.LoadMiscCvterms("gene_ontology_association")
 }
 
+// Loads GPAD test file to staging tables
 func LoadGpadStagingSqlite(chado testchado.DBManager, t *testing.T, b *rice.Box) {
 	// test struct creation and table handling
 	str, err := b.String("sqlite_gpad.ini")
@@ -111,7 +121,7 @@ func TestGpadChadoSqlite(t *testing.T) {
 	}
 
 	dbh.MustExec(p.GetSection("insert_latest_goa_from_staging"), grecord)
-	Expect("SELECT COUNT(*) FROM temp_gpad_new").Should(HaveCount(10))
+	Expect("SELECT COUNT(*) FROM temp_gpad_new").Should(HaveCount(12))
 	// Check if goid is present in dbxref
 	type gpad struct {
 		Id       string
@@ -167,7 +177,7 @@ func TestGpadChadoSqlite(t *testing.T) {
 		}
 		err = dbh.Get(&pb, "SELECT pub_id FROM pub WHERE uniquename = $1 AND pubplace = $2", r.Pubid, r.Pubplace)
 		if err != nil {
-			t.Errorf("unable to fetch row for publication id %s error: %s", r.Pubid)
+			t.Errorf("unable to fetch row for pubplace:%s and publication id:%s error: %s", r.Pubplace, r.Pubid, err)
 		}
 		err = dbh.Get(&xr, evquery, r.Evcode, "ECO")
 		if err != nil {
@@ -176,9 +186,9 @@ func TestGpadChadoSqlite(t *testing.T) {
 	}
 
 	dbh.MustExec(p.GetSection("insert_feature_cvterm"))
-	Expect("SELECT COUNT(*) FROM feature_cvterm").Should(HaveCount(10))
+	Expect("SELECT COUNT(*) FROM feature_cvterm").Should(HaveCount(12))
 	dbh.MustExec(p.GetSection("insert_feature_cvtermprop_evcode"))
-	Expect("SELECT COUNT(*) FROM feature_cvtermprop").Should(HaveCount(10))
+	Expect("SELECT COUNT(*) FROM feature_cvtermprop").Should(HaveCount(12))
 
 	q := `
     SELECT COUNT(*) FROM feature_cvtermprop
@@ -191,7 +201,7 @@ func TestGpadChadoSqlite(t *testing.T) {
     `
 	m := make(map[string]interface{})
 	m["params"] = append(make([]interface{}, 0), "qualifier")
-	m["count"] = 10
+	m["count"] = 12
 	dbh.MustExec(p.GetSection("insert_feature_cvtermprop_qualifier"))
 	Expect(q).Should(HaveNameCount(m))
 
@@ -233,15 +243,15 @@ func TestGpadChadoSqliteBulk(t *testing.T) {
 	p := gochado.NewSqlParserFromString(str)
 	sqlite := NewChadoSqlite(dbh, p, &gochado.Organism{Genus: "Dictyostelium", Species: "discoideum"})
 	sqlite.BulkLoad()
-	Expect("SELECT COUNT(*) FROM temp_gpad_new").Should(HaveCount(10))
-	Expect("SELECT COUNT(*) FROM feature_cvterm").Should(HaveCount(10))
+	Expect("SELECT COUNT(*) FROM temp_gpad_new").Should(HaveCount(12))
+	Expect("SELECT COUNT(*) FROM feature_cvterm").Should(HaveCount(12))
 	eq := `
     SELECT COUNT(*)  FROM feature_cvtermprop
     JOIN cvterm ON cvterm.cvterm_id = feature_cvtermprop.type_id
     JOIN cv ON cv.cv_id = cvterm.cv_id
     WHERE cv.name = "eco"
     `
-	Expect(eq).Should(HaveCount(10))
+	Expect(eq).Should(HaveCount(12))
 
 	q := `
     SELECT COUNT(*) FROM feature_cvtermprop
@@ -254,7 +264,7 @@ func TestGpadChadoSqliteBulk(t *testing.T) {
     `
 	m := make(map[string]interface{})
 	m["params"] = append(make([]interface{}, 0), "qualifier")
-	m["count"] = 10
+	m["count"] = 12
 	Expect(q).Should(HaveNameCount(m))
 
 	m["params"] = append(make([]interface{}, 0), "date")
@@ -267,4 +277,23 @@ func TestGpadChadoSqliteBulk(t *testing.T) {
 	m["count"] = 5
 	Expect(q).Should(HaveNameCount(m))
 	Expect("SELECT COUNT(*) FROM feature_cvterm_pub").Should(HaveCount(1))
+}
+
+func printPubTable(dbh *sqlx.DB) {
+	type pubtable struct {
+		Id         string `db:"pub_id"`
+		Place      string `db:"pubplace"`
+		Uniquename string
+	}
+	pt := []pubtable{}
+	err := dbh.Select(&pt, "SELECT uniquename, pub_id, pubplace FROM pub")
+	if err != nil {
+		log.Fatal(err)
+	}
+	table := tablewriter.NewWriter(os.Stdout)
+	table.SetHeader([]string{"Pubid", "Uniquename", "Pubplace"})
+	for _, rec := range pt {
+		table.Append([]string{rec.Id, rec.Uniquename, rec.Place})
+	}
+	table.Render()
 }
