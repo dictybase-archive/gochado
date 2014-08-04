@@ -18,7 +18,7 @@ type stagingTest struct {
 	chado   *testchado.Sqlite
 }
 
-func SetUpSqliteTest() *stagingTest {
+func setUpSqliteTest() *stagingTest {
 	chado := testchado.NewSQLiteManager()
 	chado.DeploySchema()
 	r, err := rice.FindBox("../data")
@@ -38,8 +38,8 @@ func SetUpSqliteTest() *stagingTest {
 	}
 }
 
-func SetUpSqliteBulkTest() *stagingTest {
-	st := SetUpSqliteTest()
+func setUpSqliteBulkTest() *stagingTest {
+	st := setUpSqliteTest()
 	gpstr, err := st.rice.String("test.gpad")
 	if err != nil {
 		log.Fatal(err)
@@ -59,7 +59,7 @@ func SetUpSqliteBulkTest() *stagingTest {
 func TestGpadStagingSqliteTblBuffer(t *testing.T) {
 	// Set up for testing
 	RegisterTestingT(t)
-	st := SetUpSqliteTest()
+	st := setUpSqliteTest()
 	staging := st.staging
 	r := st.rice
 	dbh := st.chado.DBHandle()
@@ -99,7 +99,7 @@ func TestGpadStagingSqliteTblBuffer(t *testing.T) {
 func TestGpadStagingSqliteBulkCount(t *testing.T) {
 	// Set up for testing
 	RegisterTestingT(t)
-	st := SetUpSqliteBulkTest()
+	st := setUpSqliteBulkTest()
 	dbh := st.chado.DBHandle()
 	defer st.chado.DropSchema()
 
@@ -126,7 +126,7 @@ func TestGpadStagingSqliteBulkCount(t *testing.T) {
 func TestGpadStagingSqliteBulkIndividual(t *testing.T) {
 	// Set up for testing
 	RegisterTestingT(t)
-	st := SetUpSqliteBulkTest()
+	st := setUpSqliteBulkTest()
 	chado := st.chado
 	dbh := chado.DBHandle()
 	defer chado.DropSchema()
