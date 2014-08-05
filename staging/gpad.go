@@ -86,9 +86,15 @@ func (sqlite *Sqlite) AddDataRow(row string) {
 	}
 	goid := strings.Split(d[3], ":")[1]
 	evcode := strings.Split(d[5], ":")[1]
+	// slice of PubRecord struct type
 	pr := NormaLizePubRecord(refs)
 
 	gpad := make(map[string]interface{})
+	// d[1] Unique identifier such as gene product identifier
+	// d[2] Qualifiers such as enables
+	// pr Reference containing both database namespace and identifier
+	// d[8] Date curated
+	// d[9] Assigned by, database which made the annotation
 	gpad["digest"] = gochado.GetMD5Hash(d[1] + d[2] + goid + pr[0].id + pr[0].pubplace + evcode + d[8] + d[9])
 	gpad["id"] = d[1]
 	gpad["qualifier"] = d[2]
