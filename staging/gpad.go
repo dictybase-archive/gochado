@@ -96,7 +96,6 @@ func (sqlite *Sqlite) AddDataRow(row string) {
 	// evcode Evidence code
 	gpad["digest"] = gochado.GetMD5Hash(d[1] + goid + evcode + d[8] + d[9])
 	gpad["id"] = d[1]
-	gpad["qualifier"] = d[2]
 	gpad["goid"] = goid
 	gpad["publication_id"] = pr[0].id
 	gpad["pubplace"] = pr[0].pubplace
@@ -118,21 +117,45 @@ func (sqlite *Sqlite) AddDataRow(row string) {
 	}
 	sqlite.buckets["gpad"].Push(gpad)
 
+	sqlite.addQualifierFromRow(d[2], gpad["digest"])
 	sqlite.addExtraReferenceRow(pr, gpad["digest"])
-	sqlite.addWithfromRow(d, gpad["digest"])
-	sqlite.addExtensionDataRow(d, gpad["digest"])
+	if len(d[6]) > 0 {
+		sqlite.addWithfromRow(d[6], gpad["digest"])
+	}
+	if len(d[10]) > 0 {
+		sqlite.addExtensionDataRow(d[10], gpad["digest"])
+	}
 }
 
-func (sqlite *Sqlite) addWithfromRow(d []string, digest interface{}) {
-	if len(d[6]) > 0 {
+func (sqlite *Sqlite) addQualifierFromRow(d string, digest interface{}) {
+	if _, ok := sqlite.buckets["gpad_qualifier"]; !ok {
+		log.Fatal("key *gpad_qualifier* is not found in buckets")
+	}
+
+	qualifier := make([]string, 0)
+	if strings.Contains(d, "|") {
+		qualifier = append(qualifier, strings.Split(d, "|")...)
+	} else {
+		qualifier = append(qualifier, d)
+	}
+	for _, value := range qualifier {
+		gq := make(map[string]interface{})
+		gq["digest"] = digest
+		gq["qualifier"] = value
+		sqlite.buckets["gpad_qualifier"].Push(gq)
+	}
+}
+
+func (sqlite *Sqlite) addWithfromRow(d string, digest interface{}) {
+	if len(d) > 0 {
 		if _, ok := sqlite.buckets["gpad_withfrom"]; !ok {
 			log.Fatal("key *gpad_withfrom* is not found in bucket")
 		}
 		wfrom := make([]string, 0)
-		if strings.Contains(d[6], "|") {
-			wfrom = append(wfrom, strings.Split(d[6], "|")...)
+		if strings.Contains(d, "|") {
+			wfrom = append(wfrom, strings.Split(d, "|")...)
 		} else {
-			wfrom = append(wfrom, d[6])
+			wfrom = append(wfrom, d)
 		}
 		for _, value := range wfrom {
 			gwfrom := make(map[string]interface{})
@@ -158,17 +181,15 @@ func (sqlite *Sqlite) addExtraReferenceRow(pr []*PubRecord, digest interface{}) 
 	}
 }
 
-func (sqlite *Sqlite) addExtensionDataRow(d []string, digest interface{}) {
+func (sqlite *Sqlite) addExtensionDataRow(d string, digest interface{}) {
 	// Verify if extension column is annotated
-	if len(d[10]) > 0 {
-		if _, ok := sqlite.buckets["gpad_extension"]; !ok {
-			log.Fatal("key *gpad_extension* is not found in bucket")
-		}
+	if _, ok := sqlite.buckets["gpad_extension"]; !ok {
+		log.Fatal("key *gpad_extension* is not found in bucket")
 	}
 
-	if strings.Contains(d[10], "|") {
+	if strings.Contains(d, "|") {
 		// Handle multiple values
-		aextn := strings.Split(d[10], "|")
+		aextn := strings.Split(d, "|")
 		for _, value := range aextn {
 			if m := er.FindStringSubmatch(value); m != nil {
 				gext := make(map[string]interface{})
@@ -181,7 +202,7 @@ func (sqlite *Sqlite) addExtensionDataRow(d []string, digest interface{}) {
 			}
 		}
 	} else {
-		if m := er.FindStringSubmatch(d[10]); m != nil {
+		if m := er.FindStringSubmatch(d); m != nil {
 			gext := make(map[string]interface{})
 			dbxref := strings.Split(m[2], ":")
 			gext["db"] = dbxref[0]

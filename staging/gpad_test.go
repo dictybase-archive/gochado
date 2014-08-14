@@ -66,7 +66,7 @@ func TestGpadStagingSqliteTblBuffer(t *testing.T) {
 	defer st.chado.DropSchema()
 
 	// test struct creation and table handling
-	Expect(staging.sections).Should(HaveLen(5))
+	Expect(staging.sections).Should(HaveLen(6))
 	for _, sec := range staging.tables {
 		row := dbh.QueryRowx("SELECT name FROM sqlite_temp_master WHERE type = 'table' AND name = $1", sec)
 		var tbl string
@@ -86,14 +86,15 @@ func TestGpadStagingSqliteTblBuffer(t *testing.T) {
 		}
 		staging.AddDataRow(line)
 	}
-	Expect(staging.buckets).Should(HaveLen(5))
-	for _, name := range []string{"gpad", "gpad_reference", "gpad_withfrom", "gpad_extension"} {
+	Expect(staging.buckets).Should(HaveLen(6))
+	for _, name := range []string{"gpad", "gpad_reference", "gpad_withfrom", "gpad_extension", "gpad_qualifier"} {
 		Expect(staging.buckets).Should(HaveKey(name))
 	}
 	Expect(staging.buckets["gpad"].Count()).To(Equal(12))
 	Expect(staging.buckets["gpad_reference"].Count()).To(Equal(1))
 	Expect(staging.buckets["gpad_withfrom"].Count()).To(Equal(5))
 	Expect(staging.buckets["gpad_extension"].Count()).To(Equal(3))
+	Expect(staging.buckets["gpad_qualifier"].Count()).To(Equal(12))
 }
 
 func TestGpadStagingSqliteBulkCount(t *testing.T) {
@@ -121,6 +122,11 @@ func TestGpadStagingSqliteBulkCount(t *testing.T) {
 	err = dbh.Get(&e, "SELECT COUNT(*) counter FROM temp_gpad_extension")
 	Expect(err).ShouldNot(HaveOccurred())
 	Expect(e.Counter).Should(Equal(3))
+
+	err = dbh.Get(&e, "SELECT COUNT(*) counter FROM temp_gpad_qualifier")
+	Expect(err).ShouldNot(HaveOccurred())
+	//test by matching total entries in tables
+	Expect(e.Counter).Should(Equal(12))
 }
 
 func TestGpadStagingSqliteBulkIndividual(t *testing.T) {
@@ -141,10 +147,10 @@ func TestGpadStagingSqliteBulkIndividual(t *testing.T) {
 		Date      string `db:"date_curated"`
 	}
 	g := gpad{}
-	err := dbh.Get(&g, "SELECT qualifier, publication_id, pubplace, evidence_code, assigned_by, date_curated FROM temp_gpad where id = ?", "DDB_G0272003")
+	err := dbh.Get(&g, "SELECT publication_id, pubplace, evidence_code, assigned_by, date_curated FROM temp_gpad where id = ?", "DDB_G0272003")
 	Expect(err).ShouldNot(HaveOccurred())
 	el := reflect.ValueOf(&g).Elem()
-	for k, v := range map[string]string{"Qualifier": "enables", "Pubid": "0000002", "Pubplace": "GO_REF", "Evidence": "0000256", "Assigned": "InterPro", "Date": "20140222"} {
+	for k, v := range map[string]string{"Pubid": "0000002", "Pubplace": "GO_REF", "Evidence": "0000256", "Assigned": "InterPro", "Date": "20140222"} {
 		sv := el.FieldByName(k).String()
 		Expect(sv).Should(Equal(v))
 	}
@@ -203,4 +209,16 @@ func TestGpadStagingSqliteBulkIndividual(t *testing.T) {
 	Expect(err).ShouldNot(HaveOccurred())
 	Expect(ge.Relationship).Should(Equal("in_presence_of"))
 	Expect(ge.Id).Should(Equal("64672"))
+
+	//gpad_qualifier
+	q3 := `SELECT tq.qualifier FROM temp_gpad_qualifier tq JOIN
+	temp_gpad tg ON tg.digest = tq.digest
+	WHERE tg.id = $1`
+	type gqual struct {
+		Qualifier string
+	}
+	gq := gqual{}
+	err = dbh.Get(&gq, q3, "DDB_G0285321")
+	Expect(err).ShouldNot(HaveOccurred())
+	Expect(gq.Qualifier).Should(Equal("involved_in"))
 }
