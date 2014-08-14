@@ -91,11 +91,10 @@ func (sqlite *Sqlite) AddDataRow(row string) {
 
 	gpad := make(map[string]interface{})
 	// d[1] Unique identifier such as gene product identifier
-	// d[2] Qualifiers such as enables
-	// pr Reference containing both database namespace and identifier
 	// d[8] Date curated
 	// d[9] Assigned by, database which made the annotation
-	gpad["digest"] = gochado.GetMD5Hash(d[1] + d[2] + goid + pr[0].id + pr[0].pubplace + evcode + d[8] + d[9])
+	// evcode Evidence code
+	gpad["digest"] = gochado.GetMD5Hash(d[1] + goid + evcode + d[8] + d[9])
 	gpad["id"] = d[1]
 	gpad["qualifier"] = d[2]
 	gpad["goid"] = goid
@@ -104,6 +103,8 @@ func (sqlite *Sqlite) AddDataRow(row string) {
 	gpad["evidence_code"] = evcode
 	gpad["date_curated"] = d[8]
 	gpad["assigned_by"] = d[9]
+	// A requirement for chado table feature_cvterm where feature_id,
+	// cvterm_id and pub_id and rank have to be unique.
 	rdigest := gochado.GetMD5Hash(d[1] + goid + pr[0].id + pr[0].pubplace)
 	if r, ok := sqlite.ranks[rdigest]; ok {
 		sqlite.ranks[rdigest] = r + 1
