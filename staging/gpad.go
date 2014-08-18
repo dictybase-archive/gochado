@@ -91,10 +91,9 @@ func (sqlite *Sqlite) AddDataRow(row string) {
 
 	gpad := make(map[string]interface{})
 	// d[1] Unique identifier such as gene product identifier
-	// d[8] Date curated
 	// d[9] Assigned by, database which made the annotation
 	// evcode Evidence code
-	gpad["digest"] = gochado.GetMD5Hash(d[1] + goid + evcode + d[8] + d[9])
+	gpad["digest"] = gochado.GetMD5Hash(d[1] + goid + evcode + d[9])
 	gpad["id"] = d[1]
 	gpad["goid"] = goid
 	gpad["publication_id"] = pr[0].id
