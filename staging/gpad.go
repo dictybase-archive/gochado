@@ -137,10 +137,11 @@ func (sqlite *Sqlite) addQualifierFromRow(d string, digest interface{}) {
 	} else {
 		qualifier = append(qualifier, d)
 	}
-	for _, value := range qualifier {
+	for i, value := range qualifier {
 		gq := make(map[string]interface{})
 		gq["digest"] = digest
 		gq["qualifier"] = value
+		gq["rank"] = i
 		sqlite.buckets["gpad_qualifier"].Push(gq)
 	}
 }
@@ -156,10 +157,11 @@ func (sqlite *Sqlite) addWithfromRow(d string, digest interface{}) {
 		} else {
 			wfrom = append(wfrom, d)
 		}
-		for _, value := range wfrom {
+		for i, value := range wfrom {
 			gwfrom := make(map[string]interface{})
 			gwfrom["digest"] = digest
 			gwfrom["withfrom"] = value
+			gwfrom["rank"] = i
 			sqlite.buckets["gpad_withfrom"].Push(gwfrom)
 		}
 	}
