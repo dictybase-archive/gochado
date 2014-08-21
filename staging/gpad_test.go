@@ -156,15 +156,15 @@ func TestGpadStagingSqliteBulkIndividual(t *testing.T) {
 	}
 
 	type gdigest struct{ Digest string }
-	type gref struct {
-		Pubid    string `db:"publication_id"`
-		Pubplace string `db:"pubplace"`
-	}
 	gd := gdigest{}
 	err = dbh.Get(&gd, "SELECT digest FROM temp_gpad WHERE id = $1", "DDB_G0278727")
 	Expect(err).ShouldNot(HaveOccurred())
 
 	//gpad_reference
+	type gref struct {
+		Pubid    string `db:"publication_id"`
+		Pubplace string `db:"pubplace"`
+	}
 	gr := gref{}
 	err = dbh.Get(&gr, "SELECT publication_id, pubplace FROM temp_gpad_reference WHERE digest = $1", gd.Digest)
 	Expect(err).ShouldNot(HaveOccurred())
@@ -174,11 +174,15 @@ func TestGpadStagingSqliteBulkIndividual(t *testing.T) {
 	// gpad_withfrom
 	err = dbh.Get(&gd, "SELECT digest FROM temp_gpad WHERE id = $1 AND evidence_code = $2", "DDB_G0272004", "0000318")
 	Expect(err).ShouldNot(HaveOccurred())
-	type gwithfrom struct{ Withfrom string }
+	type gwithfrom struct {
+		Withfrom string
+		Rank     int
+	}
 	gw := gwithfrom{}
-	err = dbh.Get(&gw, "SELECT withfrom FROM temp_gpad_withfrom WHERE digest = $1", gd.Digest)
+	err = dbh.Get(&gw, "SELECT withfrom,rank FROM temp_gpad_withfrom WHERE digest = $1", gd.Digest)
 	Expect(err).ShouldNot(HaveOccurred())
 	Expect(gw.Withfrom).Should(Equal("PANTHER:PTN000012953"))
+	Expect(gw.Rank).Should(Equal(0))
 
 	//gpad_extension
 	q := `SELECT tgext.relationship, tgext.db, tgext.id FROM temp_gpad_extension
@@ -211,14 +215,16 @@ func TestGpadStagingSqliteBulkIndividual(t *testing.T) {
 	Expect(ge.Id).Should(Equal("64672"))
 
 	//gpad_qualifier
-	q3 := `SELECT tq.qualifier FROM temp_gpad_qualifier tq JOIN
+	q3 := `SELECT tq.qualifier,tq.rank FROM temp_gpad_qualifier tq JOIN
 	temp_gpad tg ON tg.digest = tq.digest
 	WHERE tg.id = $1`
 	type gqual struct {
 		Qualifier string
+		Rank      int
 	}
 	gq := gqual{}
 	err = dbh.Get(&gq, q3, "DDB_G0285321")
 	Expect(err).ShouldNot(HaveOccurred())
 	Expect(gq.Qualifier).Should(Equal("involved_in"))
+	Expect(gq.Rank).Should(Equal(0))
 }
