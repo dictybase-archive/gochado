@@ -92,7 +92,7 @@ func TestGpadStagingSqliteTblBuffer(t *testing.T) {
 	}
 	Expect(staging.buckets["gpad"].Count()).To(Equal(12))
 	Expect(staging.buckets["gpad_reference"].Count()).To(Equal(1))
-	Expect(staging.buckets["gpad_withfrom"].Count()).To(Equal(5))
+	Expect(staging.buckets["gpad_withfrom"].Count()).To(Equal(6))
 	Expect(staging.buckets["gpad_extension"].Count()).To(Equal(3))
 	Expect(staging.buckets["gpad_qualifier"].Count()).To(Equal(12))
 }
@@ -117,7 +117,7 @@ func TestGpadStagingSqliteBulkCount(t *testing.T) {
 
 	err = dbh.Get(&e, "SELECT COUNT(*) counter FROM temp_gpad_withfrom")
 	Expect(err).ShouldNot(HaveOccurred())
-	Expect(e.Counter).Should(Equal(5))
+	Expect(e.Counter).Should(Equal(6))
 
 	err = dbh.Get(&e, "SELECT COUNT(*) counter FROM temp_gpad_extension")
 	Expect(err).ShouldNot(HaveOccurred())
@@ -183,6 +183,16 @@ func TestGpadStagingSqliteBulkIndividual(t *testing.T) {
 	Expect(err).ShouldNot(HaveOccurred())
 	Expect(gw.Withfrom).Should(Equal("PANTHER:PTN000012953"))
 	Expect(gw.Rank).Should(Equal(0))
+	//gpad_withfrom and multiple values
+	qwith := `SELECT tgw.withfrom,tgw.rank FROM temp_gpad_withfrom tgw
+	JOIN temp_gpad ON temp_gpad.digest = tgw.digest
+	WHERE temp_gpad.id = $1
+	`
+	gwm := []gwithfrom{}
+	err = dbh.Select(&gwm, qwith, "DDB_G0272003")
+	Expect(err).ShouldNot(HaveOccurred())
+	Expect(gwm[1].Withfrom).Should(Equal("InterPro:IPR001245"))
+	Expect(gwm[1].Rank).Should(Equal(1))
 
 	//gpad_extension
 	q := `SELECT tgext.relationship, tgext.db, tgext.id FROM temp_gpad_extension
