@@ -114,7 +114,7 @@ func TestGpadChadoSqlite(t *testing.T) {
 	setup := setUpSqliteTest()
 	chado := setup.chado
 	p := setup.parser
-	ont := "gene_ontology_association"
+	//ont := "gene_ontology_association"
 	//Teardown
 	defer chado.DropSchema()
 
@@ -124,13 +124,12 @@ func TestGpadChadoSqlite(t *testing.T) {
 		GoId   string
 		Digest string
 	}
-	fmt.Println("select_only_new_gpad")
 	tp := []tpad{}
-	err := dbh.Select(&tp, p.GetSection("select_only_new_gpad"), ont, ont)
+	err := dbh.Select(&tp, p.GetSection("select_only_new_gpad"))
 	Expect(err).ShouldNot(HaveOccurred())
 	Expect(tp).Should(HaveLen(12))
 	for _, tr := range tp {
-		fmt.Printf("id:%s goid:%s digest:%s", tr.Id, tr.GoId, tr.Digest)
+		fmt.Printf("id:%s goid:%s digest:%s\n", tr.Id, tr.GoId, tr.Digest)
 	}
 	//fmt.Println("insert_latest_goa_from_staging")
 	//dbh.MustExec(p.GetSection("insert_latest_goa_from_staging"), ont)
