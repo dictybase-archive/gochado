@@ -3,7 +3,6 @@ package chado
 import (
 	"bytes"
 	"encoding/gob"
-	"fmt"
 	"log"
 	"os"
 	"testing"
@@ -114,105 +113,69 @@ func TestGpadChadoSqlite(t *testing.T) {
 	setup := setUpSqliteTest()
 	chado := setup.chado
 	p := setup.parser
-	//ont := "gene_ontology_association"
+	ont := "gene_ontology_association"
 	//Teardown
 	defer chado.DropSchema()
 
 	dbh := chado.DBHandle()
-	type tpad struct {
-		Id     string
-		GoId   string
-		Digest string
-	}
-	tp := []tpad{}
-	err := dbh.Select(&tp, p.GetSection("select_only_new_gpad"))
+
+	//check for all changed gpad records
+	_, err := dbh.Exec(p.GetSection("insert_latest_goa_from_staging"))
 	Expect(err).ShouldNot(HaveOccurred())
-	Expect(tp).Should(HaveLen(12))
-	for _, tr := range tp {
-		fmt.Printf("id:%s goid:%s digest:%s\n", tr.Id, tr.GoId, tr.Digest)
+	Expect("SELECT COUNT(*) FROM temp_gpad_new").Should(HaveCount(12))
+
+	//check for gpad count in chado
+	var count int
+	err = dbh.QueryRowx(p.GetSection("count_all_gpads_from_chado"), ont).Scan(&count)
+	Expect(err).ShouldNot(HaveOccurred())
+	Expect(count).Should(Equal(0))
+	type gpad struct {
+		DbId       string `db:"dbid"`
+		GoId       string
+		Evcode     string
+		AssignedBy string `db:"value"`
 	}
-	//fmt.Println("insert_latest_goa_from_staging")
-	//dbh.MustExec(p.GetSection("insert_latest_goa_from_staging"), ont)
-	//Expect("SELECT COUNT(*) FROM temp_gpad_new").Should(HaveCount(12))
-	//fmt.Println("done insert_latest_goa_from_staging")
-	//// Check if goid is present in dbxref
-	//type gpad struct {
-	//Pubid     string `db:"pub_id"`
-	//FeatureId string `db:"feature_id"`
-	//CvtermId  string `db:"cvterm_id"`
-	//IsUpdate  int    `db:"is_update"`
-	//}
-	//g := []gpad{}
-	//fmt.Println("going to get from temp_gpad_new")
-	//err := dbh.Select(&g, "SELECT feature_id, cvterm_id, pub_id, is_update FROM temp_gpad_new")
-	//Expect(err).ShouldNot(HaveOccurred())
-	//fmt.Println("got everything from temp_gpad_new")
-	//
-	//cvtq := `
-	//SELECT COUNT(*) counter FROM cvterm
-	//JOIN cv ON cv.cv_id = cvterm.cv_id
-	//JOIN cvterm ON dbxref.dbxref_id = cvterm.dbxref_id
-	//JOIN db ON db.db_id = dbxref.db_id
-	//WHERE dbxref.accession = $1
-	//AND db.name = $2
-	//AND cv.name IN("biological_process", "molecular_function", "cellular_component")
-	//`
-	//fq := `SELECT COUNT(*) counter FROM feature WHERE feature_id = $1`
-	//pq := `SELECT COUNT(*) counter FROM pub WHERE pub_id = $1`
-	//// make sure all dbxrefs, db, cv, cvterms and publication records are present
-	//type entries struct{ Counter int }
-	//e := entries{}
-	//for _, r := range g {
-	//Expect(r.IsUpdate).Should(Equal(0))
+	gp := []gpad{}
+	err = dbh.Select(&gp, p.GetSection("select_all_gpads_from_chado"), ont)
+	Expect(err).ShouldNot(HaveOccurred())
+	Expect(gp).Should(HaveLen(0))
 
-	//err := dbh.Get(&e, fq, r.FeatureId)
-	//Expect(err).ShouldNot(HaveOccurred())
-	//Expect(e.Counter).Should(Equal(1))
+	//insert new records
+	dbh.MustExec(p.GetSection("insert_feature_cvterm"))
+	Expect("SELECT COUNT(*) FROM feature_cvterm").Should(HaveCount(12))
+	dbh.MustExec(p.GetSection("insert_feature_cvtermprop_evcode"))
+	Expect("SELECT COUNT(*) FROM feature_cvtermprop").Should(HaveCount(12))
 
-	//err = dbh.Get(&e, cvtq, r.CvtermId, "GO")
-	//Expect(err).ShouldNot(HaveOccurred())
-	//Expect(e.Counter).Should(Equal(1))
+	q := `
+	SELECT COUNT(*) FROM feature_cvtermprop
+	WHERE type_id = (
+	SELECT cvterm_id FROM cvterm
+	JOIN cv ON cv.cv_id = cvterm.cv_id
+	WHERE cv.name = 'gene_ontology_association'
+	AND cvterm.name = $1
+	)
+	`
+	m := make(map[string]interface{})
+	m["params"] = append(make([]interface{}, 0), "qualifier")
+	m["count"] = 12
+	dbh.MustExec(p.GetSection("insert_feature_cvtermprop_qualifier"), ont)
+	Expect(q).Should(HaveNameCount(m))
 
-	//err = dbh.Get(&e, pq, r.Pubid)
-	//Expect(err).ShouldNot(HaveOccurred())
-	//Expect(e.Counter).Should(Equal(1))
-	//}
+	m["params"] = append(make([]interface{}, 0), "date")
+	dbh.MustExec(p.GetSection("insert_feature_cvtermprop_date"), ont)
+	Expect(q).Should(HaveNameCount(m))
 
-	//dbh.MustExec(p.GetSection("insert_feature_cvterm"))
-	//Expect("SELECT COUNT(*) FROM feature_cvterm").Should(HaveCount(12))
-	//dbh.MustExec(p.GetSection("insert_feature_cvtermprop_evcode"))
-	//Expect("SELECT COUNT(*) FROM feature_cvtermprop").Should(HaveCount(12))
+	m["params"] = append(make([]interface{}, 0), "source")
+	dbh.MustExec(p.GetSection("insert_feature_cvtermprop_assigned_by"), ont)
+	Expect(q).Should(HaveNameCount(m))
 
-	//q := `
-	//SELECT COUNT(*) FROM feature_cvtermprop
-	//WHERE type_id = (
-	//SELECT cvterm_id FROM cvterm
-	//JOIN cv ON cv.cv_id = cvterm.cv_id
-	//WHERE cv.name = 'gene_ontology_association'
-	//AND cvterm.name = $1
-	//)
-	//`
-	//m := make(map[string]interface{})
-	//m["params"] = append(make([]interface{}, 0), "qualifier")
-	//m["count"] = 12
-	//dbh.MustExec(p.GetSection("insert_feature_cvtermprop_qualifier"))
-	//Expect(q).Should(HaveNameCount(m))
+	m["params"] = append(make([]interface{}, 0), "with")
+	m["count"] = 6
+	dbh.MustExec(p.GetSection("insert_feature_cvtermprop_withfrom"), ont)
+	Expect(q).Should(HaveNameCount(m))
 
-	//m["params"] = append(make([]interface{}, 0), "date")
-	//dbh.MustExec(p.GetSection("insert_feature_cvtermprop_date"))
-	//Expect(q).Should(HaveNameCount(m))
-
-	//m["params"] = append(make([]interface{}, 0), "source")
-	//dbh.MustExec(p.GetSection("insert_feature_cvtermprop_assigned_by"))
-	//Expect(q).Should(HaveNameCount(m))
-
-	//m["params"] = append(make([]interface{}, 0), "with")
-	//m["count"] = 6
-	//dbh.MustExec(p.GetSection("insert_feature_cvtermprop_withfrom"))
-	//Expect(q).Should(HaveNameCount(m))
-
-	//dbh.MustExec(p.GetSection("insert_feature_cvterm_pub_reference"))
-	//Expect("SELECT COUNT(*) FROM feature_cvterm_pub").Should(HaveCount(1))
+	dbh.MustExec(p.GetSection("insert_feature_cvterm_pub_reference"))
+	Expect("SELECT COUNT(*) FROM feature_cvterm_pub").Should(HaveCount(1))
 }
 
 //func TestGpadChadoSqliteBulk(t *testing.T) {
