@@ -120,7 +120,7 @@ func TestGpadChadoSqlite(t *testing.T) {
 	dbh := chado.DBHandle()
 
 	//check for all changed gpad records
-	_, err := dbh.Exec(p.GetSection("insert_latest_goa_from_staging"))
+	_, err := dbh.Exec(p.GetSection("insert_latest_goa_from_staging"), ont)
 	Expect(err).ShouldNot(HaveOccurred())
 	Expect("SELECT COUNT(*) FROM temp_gpad_new").Should(HaveCount(12))
 
@@ -178,53 +178,53 @@ func TestGpadChadoSqlite(t *testing.T) {
 	Expect("SELECT COUNT(*) FROM feature_cvterm_pub").Should(HaveCount(1))
 }
 
-//func TestGpadChadoSqliteBulk(t *testing.T) {
-//RegisterTestingT(t)
-////Setup
-//setup := setUpSqliteTest()
-//chado := setup.chado
-//dbh := chado.DBHandle()
-//ont := "gene_ontology_association"
-////Teardown
-//defer chado.DropSchema()
+func TestGpadChadoSqliteBulk(t *testing.T) {
+	RegisterTestingT(t)
+	//Setup
+	setup := setUpSqliteTest()
+	chado := setup.chado
+	dbh := chado.DBHandle()
+	ont := "gene_ontology_association"
+	//Teardown
+	defer chado.DropSchema()
 
-//sqlite := NewChadoSqlite(dbh, setup.parser, ont)
-//sqlite.BulkLoad()
-//Expect("SELECT COUNT(*) FROM temp_gpad_new").Should(HaveCount(12))
-//Expect("SELECT COUNT(*) FROM feature_cvterm").Should(HaveCount(12))
-//eq := `
-//SELECT COUNT(*)  FROM feature_cvtermprop
-//JOIN cvterm ON cvterm.cvterm_id = feature_cvtermprop.type_id
-//JOIN cv ON cv.cv_id = cvterm.cv_id
-//WHERE cv.name = "eco"
-//`
-//Expect(eq).Should(HaveCount(12))
+	sqlite := NewChadoSqlite(dbh, setup.parser, ont)
+	sqlite.BulkLoad()
+	Expect("SELECT COUNT(*) FROM temp_gpad_new").Should(HaveCount(12))
+	Expect("SELECT COUNT(*) FROM feature_cvterm").Should(HaveCount(12))
+	eq := `
+SELECT COUNT(*)  FROM feature_cvtermprop
+JOIN cvterm ON cvterm.cvterm_id = feature_cvtermprop.type_id
+JOIN cv ON cv.cv_id = cvterm.cv_id
+WHERE cv.name = "eco"
+`
+	Expect(eq).Should(HaveCount(12))
 
-//q := `
-//SELECT COUNT(*) FROM feature_cvtermprop
-//WHERE type_id = (
-//SELECT cvterm_id FROM cvterm
-//JOIN cv ON cv.cv_id = cvterm.cv_id
-//WHERE cv.name = $1
-//AND cvterm.name = $2
-//)
-//`
-//m := make(map[string]interface{})
-//m["params"] = append(make([]interface{}, 0), ont, "qualifier")
-//m["count"] = 12
-//Expect(q).Should(HaveNameCount(m))
+	q := `
+SELECT COUNT(*) FROM feature_cvtermprop
+WHERE type_id = (
+SELECT cvterm_id FROM cvterm
+JOIN cv ON cv.cv_id = cvterm.cv_id
+WHERE cv.name = $1
+AND cvterm.name = $2
+)
+`
+	m := make(map[string]interface{})
+	m["params"] = append(make([]interface{}, 0), ont, "qualifier")
+	m["count"] = 12
+	Expect(q).Should(HaveNameCount(m))
 
-//m["params"] = append(make([]interface{}, 0), ont, "date")
-//Expect(q).Should(HaveNameCount(m))
+	m["params"] = append(make([]interface{}, 0), ont, "date")
+	Expect(q).Should(HaveNameCount(m))
 
-//m["params"] = append(make([]interface{}, 0), ont, "source")
-//Expect(q).Should(HaveNameCount(m))
+	m["params"] = append(make([]interface{}, 0), ont, "source")
+	Expect(q).Should(HaveNameCount(m))
 
-//m["params"] = append(make([]interface{}, 0), ont, "with")
-//m["count"] = 6
-//Expect(q).Should(HaveNameCount(m))
-//Expect("SELECT COUNT(*) FROM feature_cvterm_pub").Should(HaveCount(1))
-//}
+	m["params"] = append(make([]interface{}, 0), ont, "with")
+	m["count"] = 6
+	Expect(q).Should(HaveNameCount(m))
+	Expect("SELECT COUNT(*) FROM feature_cvterm_pub").Should(HaveCount(1))
+}
 
 func printPubTable(dbh *sqlx.DB) {
 	type pubtable struct {
