@@ -18,7 +18,7 @@ type stagingTest struct {
 	chado   *testchado.Sqlite
 }
 
-func SetUpSqliteTest() *stagingTest {
+func setUpSqliteTest() *stagingTest {
 	chado := testchado.NewSQLiteManager()
 	chado.DeploySchema()
 	r, err := rice.FindBox("../data")
@@ -38,8 +38,8 @@ func SetUpSqliteTest() *stagingTest {
 	}
 }
 
-func SetUpSqliteBulkTest() *stagingTest {
-	st := SetUpSqliteTest()
+func setUpSqliteBulkTest() *stagingTest {
+	st := setUpSqliteTest()
 	gpstr, err := st.rice.String("test.gpad")
 	if err != nil {
 		log.Fatal(err)
@@ -59,14 +59,14 @@ func SetUpSqliteBulkTest() *stagingTest {
 func TestGpadStagingSqliteTblBuffer(t *testing.T) {
 	// Set up for testing
 	RegisterTestingT(t)
-	st := SetUpSqliteTest()
+	st := setUpSqliteTest()
 	staging := st.staging
 	r := st.rice
 	dbh := st.chado.DBHandle()
 	defer st.chado.DropSchema()
 
 	// test struct creation and table handling
-	Expect(staging.sections).Should(HaveLen(5))
+	Expect(staging.sections).Should(HaveLen(6))
 	for _, sec := range staging.tables {
 		row := dbh.QueryRowx("SELECT name FROM sqlite_temp_master WHERE type = 'table' AND name = $1", sec)
 		var tbl string
@@ -86,20 +86,21 @@ func TestGpadStagingSqliteTblBuffer(t *testing.T) {
 		}
 		staging.AddDataRow(line)
 	}
-	Expect(staging.buckets).Should(HaveLen(5))
-	for _, name := range []string{"gpad", "gpad_reference", "gpad_withfrom", "gpad_extension"} {
+	Expect(staging.buckets).Should(HaveLen(6))
+	for _, name := range []string{"gpad", "gpad_reference", "gpad_withfrom", "gpad_extension", "gpad_qualifier"} {
 		Expect(staging.buckets).Should(HaveKey(name))
 	}
 	Expect(staging.buckets["gpad"].Count()).To(Equal(12))
 	Expect(staging.buckets["gpad_reference"].Count()).To(Equal(1))
-	Expect(staging.buckets["gpad_withfrom"].Count()).To(Equal(5))
+	Expect(staging.buckets["gpad_withfrom"].Count()).To(Equal(6))
 	Expect(staging.buckets["gpad_extension"].Count()).To(Equal(3))
+	Expect(staging.buckets["gpad_qualifier"].Count()).To(Equal(12))
 }
 
 func TestGpadStagingSqliteBulkCount(t *testing.T) {
 	// Set up for testing
 	RegisterTestingT(t)
-	st := SetUpSqliteBulkTest()
+	st := setUpSqliteBulkTest()
 	dbh := st.chado.DBHandle()
 	defer st.chado.DropSchema()
 
@@ -116,17 +117,22 @@ func TestGpadStagingSqliteBulkCount(t *testing.T) {
 
 	err = dbh.Get(&e, "SELECT COUNT(*) counter FROM temp_gpad_withfrom")
 	Expect(err).ShouldNot(HaveOccurred())
-	Expect(e.Counter).Should(Equal(5))
+	Expect(e.Counter).Should(Equal(6))
 
 	err = dbh.Get(&e, "SELECT COUNT(*) counter FROM temp_gpad_extension")
 	Expect(err).ShouldNot(HaveOccurred())
 	Expect(e.Counter).Should(Equal(3))
+
+	err = dbh.Get(&e, "SELECT COUNT(*) counter FROM temp_gpad_qualifier")
+	Expect(err).ShouldNot(HaveOccurred())
+	//test by matching total entries in tables
+	Expect(e.Counter).Should(Equal(12))
 }
 
 func TestGpadStagingSqliteBulkIndividual(t *testing.T) {
 	// Set up for testing
 	RegisterTestingT(t)
-	st := SetUpSqliteBulkTest()
+	st := setUpSqliteBulkTest()
 	chado := st.chado
 	dbh := chado.DBHandle()
 	defer chado.DropSchema()
@@ -141,24 +147,24 @@ func TestGpadStagingSqliteBulkIndividual(t *testing.T) {
 		Date      string `db:"date_curated"`
 	}
 	g := gpad{}
-	err := dbh.Get(&g, "SELECT qualifier, publication_id, pubplace, evidence_code, assigned_by, date_curated FROM temp_gpad where id = ?", "DDB_G0272003")
+	err := dbh.Get(&g, "SELECT publication_id, pubplace, evidence_code, assigned_by, date_curated FROM temp_gpad where id = ?", "DDB_G0272003")
 	Expect(err).ShouldNot(HaveOccurred())
 	el := reflect.ValueOf(&g).Elem()
-	for k, v := range map[string]string{"Qualifier": "enables", "Pubid": "0000002", "Pubplace": "GO_REF", "Evidence": "0000256", "Assigned": "InterPro", "Date": "20140222"} {
+	for k, v := range map[string]string{"Pubid": "0000002", "Pubplace": "GO_REF", "Evidence": "0000256", "Assigned": "InterPro", "Date": "20140222"} {
 		sv := el.FieldByName(k).String()
 		Expect(sv).Should(Equal(v))
 	}
 
 	type gdigest struct{ Digest string }
-	type gref struct {
-		Pubid    string `db:"publication_id"`
-		Pubplace string `db:"pubplace"`
-	}
 	gd := gdigest{}
 	err = dbh.Get(&gd, "SELECT digest FROM temp_gpad WHERE id = $1", "DDB_G0278727")
 	Expect(err).ShouldNot(HaveOccurred())
 
 	//gpad_reference
+	type gref struct {
+		Pubid    string `db:"publication_id"`
+		Pubplace string `db:"pubplace"`
+	}
 	gr := gref{}
 	err = dbh.Get(&gr, "SELECT publication_id, pubplace FROM temp_gpad_reference WHERE digest = $1", gd.Digest)
 	Expect(err).ShouldNot(HaveOccurred())
@@ -168,11 +174,25 @@ func TestGpadStagingSqliteBulkIndividual(t *testing.T) {
 	// gpad_withfrom
 	err = dbh.Get(&gd, "SELECT digest FROM temp_gpad WHERE id = $1 AND evidence_code = $2", "DDB_G0272004", "0000318")
 	Expect(err).ShouldNot(HaveOccurred())
-	type gwithfrom struct{ Withfrom string }
+	type gwithfrom struct {
+		Withfrom string
+		Rank     int
+	}
 	gw := gwithfrom{}
-	err = dbh.Get(&gw, "SELECT withfrom FROM temp_gpad_withfrom WHERE digest = $1", gd.Digest)
+	err = dbh.Get(&gw, "SELECT withfrom,rank FROM temp_gpad_withfrom WHERE digest = $1", gd.Digest)
 	Expect(err).ShouldNot(HaveOccurred())
 	Expect(gw.Withfrom).Should(Equal("PANTHER:PTN000012953"))
+	Expect(gw.Rank).Should(Equal(0))
+	//gpad_withfrom and multiple values
+	qwith := `SELECT tgw.withfrom,tgw.rank FROM temp_gpad_withfrom tgw
+	JOIN temp_gpad ON temp_gpad.digest = tgw.digest
+	WHERE temp_gpad.id = $1
+	`
+	gwm := []gwithfrom{}
+	err = dbh.Select(&gwm, qwith, "DDB_G0272003")
+	Expect(err).ShouldNot(HaveOccurred())
+	Expect(gwm[1].Withfrom).Should(Equal("InterPro:IPR001245"))
+	Expect(gwm[1].Rank).Should(Equal(1))
 
 	//gpad_extension
 	q := `SELECT tgext.relationship, tgext.db, tgext.id FROM temp_gpad_extension
@@ -203,4 +223,18 @@ func TestGpadStagingSqliteBulkIndividual(t *testing.T) {
 	Expect(err).ShouldNot(HaveOccurred())
 	Expect(ge.Relationship).Should(Equal("in_presence_of"))
 	Expect(ge.Id).Should(Equal("64672"))
+
+	//gpad_qualifier
+	q3 := `SELECT tq.qualifier,tq.rank FROM temp_gpad_qualifier tq JOIN
+	temp_gpad tg ON tg.digest = tq.digest
+	WHERE tg.id = $1`
+	type gqual struct {
+		Qualifier string
+		Rank      int
+	}
+	gq := gqual{}
+	err = dbh.Get(&gq, q3, "DDB_G0285321")
+	Expect(err).ShouldNot(HaveOccurred())
+	Expect(gq.Qualifier).Should(Equal("involved_in"))
+	Expect(gq.Rank).Should(Equal(0))
 }

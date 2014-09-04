@@ -84,6 +84,9 @@ func (f *GpadFixtureLoader) LoadPubIds(ids []string) []Pub {
 		if strings.Contains(id, ":") {
 			out := strings.SplitN(id, ":", 2)
 			pubplace = out[0]
+			if pubplace == "PMID" {
+				pubplace = "PubMed"
+			}
 			pid = out[1]
 		}
 		p := Pub{Uniquename: pid, Pubplace: pubplace, TypeId: int64(tid)}
