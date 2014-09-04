@@ -115,3 +115,19 @@ func (f *GpadFixtureLoader) LoadMiscCvterms(cv string) []Cvterm {
 	}
 	return cvterms
 }
+
+func (f *GpadFixtureLoader) LoadAnonNamespaces() {
+	helper := f.helper
+	_, err := helper.FindOrCreateCvId("annotation extension terms")
+	if err != nil {
+		log.Fatal(err)
+	}
+	_, err = helper.FindOrCreateCvId("go/extensions/gorel")
+	if err != nil {
+		log.Fatal(err)
+	}
+	_, err = helper.FindOrCreateDbId("dictyBase")
+	if err != nil {
+		log.Fatal(err)
+	}
+}

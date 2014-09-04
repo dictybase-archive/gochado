@@ -28,6 +28,7 @@ type chadoTest struct {
 //	Reference/Publications
 //	Ontology terms/ids
 //	Various ontology terms under gene_ontology_association namespace
+//  Cv and db namespace for anonymous cvterms
 func LoadGpadChadoFixtureSqlite(chado testchado.DBManager, b *rice.Box) {
 	//get the gob file
 	r, err := b.Open("fixture.gob")
@@ -44,6 +45,7 @@ func LoadGpadChadoFixtureSqlite(chado testchado.DBManager, b *rice.Box) {
 		log.Fatal(err)
 	}
 	f := gochado.NewGpadFixtureLoader(chado)
+	// Gene ids
 	_ = f.LoadGenes(genes)
 
 	var gorefs []string
@@ -51,6 +53,7 @@ func LoadGpadChadoFixtureSqlite(chado testchado.DBManager, b *rice.Box) {
 	if err != nil {
 		log.Fatal(err)
 	}
+	// Pub ids
 	_ = f.LoadPubIds(gorefs)
 
 	var goids map[string][]string
@@ -58,8 +61,12 @@ func LoadGpadChadoFixtureSqlite(chado testchado.DBManager, b *rice.Box) {
 	if err != nil {
 		log.Fatal(err)
 	}
+	// Load GO ids
 	_ = f.LoadGoIds(goids)
 	_ = f.LoadMiscCvterms("gene_ontology_association")
+
+	// Cv and db namespace for anonymous cvterms
+	f.LoadAnonNamespaces()
 }
 
 // Loads GPAD test file to staging tables
