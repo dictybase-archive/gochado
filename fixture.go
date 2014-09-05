@@ -131,3 +131,19 @@ func (f *GpadFixtureLoader) LoadAnonNamespaces() {
 		log.Fatal(err)
 	}
 }
+
+func (f *GpadFixtureLoader) LoadExtnCvterms(cvtslice []map[string]string) []Cvterm {
+	helper := f.helper
+	gorm := f.gorm
+	cvterms := make([]Cvterm, 0)
+	for _, cvtm := range cvtslice {
+		id, err := helper.CreateCvtermId(cvtm)
+		if err != nil {
+			log.Fatal(err)
+		}
+		var cvt Cvterm
+		gorm.Where("cvterm_id = ?", id).First(&cvt)
+		cvterms = append(cvterms, cvt)
+	}
+	return cvterms
+}
