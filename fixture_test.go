@@ -10,6 +10,7 @@ import (
 	"github.com/GeertJohan/go.rice"
 	"github.com/dictybase/testchado"
 	. "github.com/onsi/gomega"
+	. "gopkg.in/dictybase/testchado.v1/matchers"
 )
 
 func getDataDir() string {
@@ -28,7 +29,7 @@ func TestGpadFixtureLoader(t *testing.T) {
 	defer chado.DropSchema()
 
 	//get the gob file
-	b := rice.MustFindBox(getDataDir())
+	b := rice.MustFindBox("data")
 	r, err := b.Open("fixture.gob")
 	defer r.Close()
 	if err != nil {
@@ -58,18 +59,33 @@ func TestGpadFixtureLoader(t *testing.T) {
 	if err != nil {
 		log.Fatal(err)
 	}
-	goterm := f.LoadGoIds(goids)
-	Expect(goterm).Should(HaveLen(9), "expected 9 goterms")
+	goterms := f.LoadGoIds(goids)
+	Expect(goterms).Should(HaveLen(9), "expected 9 goterms")
 
 	gorm := f.gorm
 	dbxref := Dbxref{}
 	db := Db{}
-	for _, cvterm := range goterm {
+	for _, cvterm := range goterms {
 		gorm.Model(&cvterm).Related(&dbxref)
 		gorm.First(&db, dbxref.DbId)
 		Expect(db.Name).Should(Equal("GO"), "Expected GO")
 	}
 
-	mterm := f.LoadMiscCvterms("gene_ontology_association")
-	Expect(mterm).Should(HaveLen(4), "expected 4 misc terms")
+	mterms := f.LoadMiscCvterms("gene_ontology_association")
+	Expect(mterms).Should(HaveLen(4), "expected 4 misc terms")
+
+	// Anonymous namespaces
+	f.LoadAnonNamespaces()
+	cvs := []string{
+		"annotation extension terms",
+		"go/extensions/gorel",
+	}
+	for _, c := range cvs {
+		Expect(chado).Should(HaveCv(c))
+	}
+	// Extension cvterms
+	var cvtslice []map[string]string
+	err = dec.Decode(&cvtslice)
+	exterms := f.LoadExtnCvterms(cvtslice)
+	Expect(exterms).Should(HaveLen(1))
 }
