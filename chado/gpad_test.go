@@ -156,9 +156,9 @@ func TestGpadChadoSqlite(t *testing.T) {
 
 	//insert new records
 	dbh.MustExec(p.GetSection("insert_feature_cvterm"))
-	Expect("SELECT COUNT(*) FROM feature_cvterm").Should(HaveCount(12))
+	Expect("SELECT COUNT(*) FROM feature_cvterm").Should(HaveCount(10))
 	dbh.MustExec(p.GetSection("insert_feature_cvtermprop_evcode"))
-	Expect("SELECT COUNT(*) FROM feature_cvtermprop").Should(HaveCount(12))
+	Expect("SELECT COUNT(*) FROM feature_cvtermprop").Should(HaveCount(10))
 
 	q := `
 	SELECT COUNT(*) FROM feature_cvtermprop
@@ -171,7 +171,7 @@ func TestGpadChadoSqlite(t *testing.T) {
 	`
 	m := make(map[string]interface{})
 	m["params"] = append(make([]interface{}, 0), "qualifier")
-	m["count"] = 12
+	m["count"] = 10
 	dbh.MustExec(p.GetSection("insert_feature_cvtermprop_qualifier"), ont)
 	Expect(q).Should(HaveNameCount(m))
 
@@ -205,14 +205,14 @@ func TestGpadChadoSqliteBulk(t *testing.T) {
 	sqlite := NewChadoSqlite(dbh, setup.parser, ont)
 	sqlite.BulkLoad()
 	Expect("SELECT COUNT(*) FROM temp_gpad_new").Should(HaveCount(12))
-	Expect("SELECT COUNT(*) FROM feature_cvterm").Should(HaveCount(12))
+	Expect("SELECT COUNT(*) FROM feature_cvterm").Should(HaveCount(10))
 	eq := `
 SELECT COUNT(*)  FROM feature_cvtermprop
 JOIN cvterm ON cvterm.cvterm_id = feature_cvtermprop.type_id
 JOIN cv ON cv.cv_id = cvterm.cv_id
 WHERE cv.name = "eco"
 `
-	Expect(eq).Should(HaveCount(12))
+	Expect(eq).Should(HaveCount(10))
 
 	q := `
 SELECT COUNT(*) FROM feature_cvtermprop
@@ -225,7 +225,7 @@ AND cvterm.name = $2
 `
 	m := make(map[string]interface{})
 	m["params"] = append(make([]interface{}, 0), ont, "qualifier")
-	m["count"] = 12
+	m["count"] = 10
 	Expect(q).Should(HaveNameCount(m))
 
 	m["params"] = append(make([]interface{}, 0), ont, "date")
