@@ -3,12 +3,22 @@ package gochado
 import (
 	"encoding/gob"
 	"log"
+	"path/filepath"
+	"runtime"
 	"testing"
 
 	"github.com/GeertJohan/go.rice"
 	"github.com/dictybase/testchado"
 	. "github.com/onsi/gomega"
 )
+
+func getDataDir() string {
+	_, file, _, ok := runtime.Caller(1)
+	if !ok {
+		log.Fatal("unable to locate the data dir")
+	}
+	return filepath.Join(filepath.Dir(file), "data")
+}
 
 func TestGpadFixtureLoader(t *testing.T) {
 	RegisterTestingT(t)
@@ -18,7 +28,7 @@ func TestGpadFixtureLoader(t *testing.T) {
 	defer chado.DropSchema()
 
 	//get the gob file
-	b := rice.MustFindBox("data")
+	b := rice.MustFindBox(getDataDir())
 	r, err := b.Open("fixture.gob")
 	defer r.Close()
 	if err != nil {
