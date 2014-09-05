@@ -67,6 +67,13 @@ func LoadGpadChadoFixtureSqlite(chado testchado.DBManager, b *rice.Box) {
 
 	// Cv and db namespace for anonymous cvterms
 	f.LoadAnonNamespaces()
+	// Extension cvterms
+	var cvtslice []map[string]string
+	err = dec.Decode(&cvtslice)
+	if err != nil {
+		log.Fatal(err)
+	}
+	_ = f.LoadExtnCvterms(cvtslice)
 }
 
 // Loads GPAD test file to staging tables

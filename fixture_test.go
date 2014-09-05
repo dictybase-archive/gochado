@@ -8,8 +8,8 @@ import (
 	"testing"
 
 	"github.com/GeertJohan/go.rice"
-	"github.com/dictybase/testchado"
 	. "github.com/onsi/gomega"
+	"gopkg.in/dictybase/testchado.v1"
 	. "gopkg.in/dictybase/testchado.v1/matchers"
 )
 
