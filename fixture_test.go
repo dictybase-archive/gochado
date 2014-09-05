@@ -86,6 +86,13 @@ func TestGpadFixtureLoader(t *testing.T) {
 	// Extension cvterms
 	var cvtslice []map[string]string
 	err = dec.Decode(&cvtslice)
+	if err != nil {
+		log.Fatal(err)
+	}
+	Expect(cvtslice).Should(HaveLen(3))
 	exterms := f.LoadExtnCvterms(cvtslice)
-	Expect(exterms).Should(HaveLen(1))
+	Expect(exterms).Should(HaveLen(3))
+	for i, cvt := range exterms {
+		Expect(cvt.Name).Should(Equal(cvtslice[i]["cvterm"]))
+	}
 }
