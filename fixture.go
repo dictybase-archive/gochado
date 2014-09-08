@@ -147,3 +147,19 @@ func (f *GpadFixtureLoader) LoadExtnCvterms(cvtslice []map[string]string) []Cvte
 	}
 	return cvterms
 }
+
+func (f *GpadFixtureLoader) LoadDbxrefs(xrefs []string) []Dbxref {
+	helper := f.helper
+	gorm := f.gorm
+	dbxrefs := make([]Dbxref, 0)
+	for _, r := range xrefs {
+		id, xr, err := helper.NormaLizeId(r)
+		if err != nil {
+			log.Fatal(err)
+		}
+		x := Dbxref{Accession: xr, DbId: int64(id)}
+		gorm.Save(&x)
+		dbxrefs = append(dbxrefs, x)
+	}
+	return dbxrefs
+}
