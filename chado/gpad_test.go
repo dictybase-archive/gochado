@@ -74,6 +74,14 @@ func LoadGpadChadoFixtureSqlite(chado testchado.DBManager, b *rice.Box) {
 		log.Fatal(err)
 	}
 	_ = f.LoadExtnCvterms(cvtslice)
+
+	// Dbxrefs
+	var xrefs []string
+	err = dec.Decode(&xrefs)
+	if err != nil {
+		log.Fatalf("decoding err in xref %s", err)
+	}
+	_ = f.LoadDbxrefs(xrefs)
 }
 
 // Loads GPAD test file to staging tables
@@ -257,4 +265,34 @@ func printPubTable(dbh *sqlx.DB) {
 		table.Append([]string{rec.Id, rec.Uniquename, rec.Place})
 	}
 	table.Render()
+}
+
+func TestAnonCvtChadoSqlite(t *testing.T) {
+	RegisterTestingT(t)
+	//Setup
+	setup := setUpSqliteTest()
+	chado := setup.chado
+	p := setup.parser
+	ont := "gene_ontology_association"
+	dbh := chado.DBHandle()
+	//Teardown
+	defer chado.DropSchema()
+
+	//check for all changed gpad records
+	_, err := dbh.Exec(p.GetSection("insert_latest_goa_from_staging"), ont)
+	Expect(err).ShouldNot(HaveOccurred())
+
+	// Create all anon cvterms
+	type anon struct {
+		Name   string
+		Digest string
+	}
+	an := []anon{}
+	err = dbh.Select(&an, p.GetSection("select_anon_cvterm"))
+	Expect(err).ShouldNot(HaveOccurred())
+	Expect(an).Should(HaveLen(3))
+	for _, a := range an {
+		_, err := dbh.Exec(p.GetSection("update_temp_with_anon_cvterm"), a.Name, a.Digest)
+		Expect(err).ShouldNot(HaveOccurred())
+	}
 }
