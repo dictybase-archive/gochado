@@ -284,15 +284,28 @@ func TestAnonCvtChadoSqlite(t *testing.T) {
 
 	// Create all anon cvterms
 	type anon struct {
-		Name   string
-		Digest string
+		Name         string
+		Digest       string
+		Id           string
+		Db           string
+		Relationship string
 	}
 	an := []anon{}
 	err = dbh.Select(&an, p.GetSection("select_anon_cvterm"))
 	Expect(err).ShouldNot(HaveOccurred())
 	Expect(an).Should(HaveLen(3))
 	for _, a := range an {
-		_, err := dbh.Exec(p.GetSection("update_temp_with_anon_cvterm"), a.Name, a.Digest)
+		q := p.GetSection("update_temp_with_anon_cvterm")
+		_, err := dbh.Exec(q, a.Name, a.Digest, a.Id, a.Db, a.Relationship)
 		Expect(err).ShouldNot(HaveOccurred())
+	}
+	// insert anon cvterms in chado
+	_, err = dbh.Exec(p.GetSection("insert_anon_cvterm_in_dbxref"), "dictyBase")
+	Expect(err).ShouldNot(HaveOccurred())
+	_, err = dbh.Exec(p.GetSection("insert_anon_cvterm"), "annotation extension terms", "dictyBase")
+	Expect(err).ShouldNot(HaveOccurred())
+	for _, a := range an {
+		Expect(chado).Should(HaveCvterm(a.Name))
+		Expect(chado).Should(HaveDbxref("dictyBase:" + a.Name))
 	}
 }
