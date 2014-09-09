@@ -132,7 +132,7 @@ func (f *GpadFixtureLoader) LoadAnonNamespaces() {
 	}
 }
 
-func (f *GpadFixtureLoader) LoadExtnCvterms(cvtslice []map[string]string) []Cvterm {
+func (f *GpadFixtureLoader) LoadCvterms(cvtslice []map[string]string) []Cvterm {
 	helper := f.helper
 	gorm := f.gorm
 	cvterms := make([]Cvterm, 0)
