@@ -73,7 +73,7 @@ func LoadGpadChadoFixtureSqlite(chado testchado.DBManager, b *rice.Box) {
 	if err != nil {
 		log.Fatal(err)
 	}
-	_ = f.LoadExtnCvterms(cvtslice)
+	_ = f.LoadCvterms(cvtslice)
 
 	// Dbxrefs
 	var xrefs []string
@@ -82,6 +82,14 @@ func LoadGpadChadoFixtureSqlite(chado testchado.DBManager, b *rice.Box) {
 		log.Fatalf("decoding err in xref %s", err)
 	}
 	_ = f.LoadDbxrefs(xrefs)
+
+	// Relationship cvterms
+	var rslice []map[string]string
+	err = dec.Decode(&rslice)
+	if err != nil {
+		log.Fatalf("unable to decode %s\n", err)
+	}
+	_ = f.LoadCvterms(rslice)
 }
 
 // Loads GPAD test file to staging tables

@@ -90,7 +90,7 @@ func TestGpadFixtureLoader(t *testing.T) {
 		log.Fatal(err)
 	}
 	Expect(cvtslice).Should(HaveLen(3))
-	exterms := f.LoadExtnCvterms(cvtslice)
+	exterms := f.LoadCvterms(cvtslice)
 	Expect(exterms).Should(HaveLen(3))
 	for i, cvt := range exterms {
 		Expect(cvt.Name).Should(Equal(cvtslice[i]["cvterm"]))
@@ -105,4 +105,17 @@ func TestGpadFixtureLoader(t *testing.T) {
 	Expect(xrefs).Should(HaveLen(2))
 	dbxrefs := f.LoadDbxrefs(xrefs)
 	Expect(dbxrefs).Should(HaveLen(2))
+
+	// Relationship cvterms
+	var rslice []map[string]string
+	err = dec.Decode(&rslice)
+	if err != nil {
+		log.Fatalf("unable to decode %s\n", err)
+	}
+	Expect(rslice).Should(HaveLen(1))
+	rterms := f.LoadCvterms(rslice)
+	Expect(rterms).Should(HaveLen(1))
+	for i, cvt := range rterms {
+		Expect(cvt.Name).Should(Equal(rslice[i]["cvterm"]))
+	}
 }
