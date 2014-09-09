@@ -316,4 +316,9 @@ func TestAnonCvtChadoSqlite(t *testing.T) {
 		Expect(chado).Should(HaveCvterm(a.Name))
 		Expect(chado).Should(HaveDbxref("dictyBase:" + a.Name))
 	}
+
+	//insert anon cvterms relationships
+	_, err = dbh.Exec(p.GetSection("insert_anon_cvterm_rel_original"), "ro", "annotation extension terms")
+	Expect(err).ShouldNot(HaveOccurred())
+	Expect("SELECT COUNT(*) FROM cvterm_relationship").Should(HaveCount(3))
 }

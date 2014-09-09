@@ -139,7 +139,7 @@ func (f *GpadFixtureLoader) LoadCvterms(cvtslice []map[string]string) []Cvterm {
 	for _, cvtm := range cvtslice {
 		id, err := helper.CreateCvtermId(cvtm)
 		if err != nil {
-			log.Fatal(err)
+			log.Fatalf("Helper unable to create cvterm %s\n", err)
 		}
 		var cvt Cvterm
 		gorm.Where("cvterm_id = ?", id).First(&cvt)
