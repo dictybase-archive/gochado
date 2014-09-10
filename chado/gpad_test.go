@@ -318,6 +318,11 @@ func TestAnonCvtChadoSqlite(t *testing.T) {
 		Expect(chado).Should(HaveDbxref("dictyBase:" + a.Name))
 	}
 
+	// insert database/sequence identifers that comes in the identifier
+	// part of annotation extensions
+	_ = dbh.MustExec(p.GetSection("insert_anon_cvterm_db_identifier"))
+	_ = dbh.MustExec(p.GetSection("insert_anon_cvterm_dbxref_identifier"))
+
 	//insert anon cvterms relationships
 	_, err = dbh.Exec(p.GetSection("insert_anon_cvterm_rel_original"), "ro", acv)
 	Expect(err).ShouldNot(HaveOccurred())
