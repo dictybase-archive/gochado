@@ -282,6 +282,7 @@ func TestAnonCvtChadoSqlite(t *testing.T) {
 	chado := setup.chado
 	p := setup.parser
 	ont := "gene_ontology_association"
+	acv := "annotation extension terms"
 	dbh := chado.DBHandle()
 	//Teardown
 	defer chado.DropSchema()
@@ -310,7 +311,7 @@ func TestAnonCvtChadoSqlite(t *testing.T) {
 	// insert anon cvterms in chado
 	_, err = dbh.Exec(p.GetSection("insert_anon_cvterm_in_dbxref"), "dictyBase")
 	Expect(err).ShouldNot(HaveOccurred())
-	_, err = dbh.Exec(p.GetSection("insert_anon_cvterm"), "annotation extension terms", "dictyBase")
+	_, err = dbh.Exec(p.GetSection("insert_anon_cvterm"), acv, "dictyBase")
 	Expect(err).ShouldNot(HaveOccurred())
 	for _, a := range an {
 		Expect(chado).Should(HaveCvterm(a.Name))
@@ -318,7 +319,46 @@ func TestAnonCvtChadoSqlite(t *testing.T) {
 	}
 
 	//insert anon cvterms relationships
-	_, err = dbh.Exec(p.GetSection("insert_anon_cvterm_rel_original"), "ro", "annotation extension terms")
+	_, err = dbh.Exec(p.GetSection("insert_anon_cvterm_rel_original"), "ro", acv)
 	Expect(err).ShouldNot(HaveOccurred())
-	Expect("SELECT COUNT(*) FROM cvterm_relationship").Should(HaveCount(3))
+	_, err = dbh.Exec(p.GetSection("insert_anon_cvterm_rel_extension"), acv)
+	Expect(err).ShouldNot(HaveOccurred())
+	runAnonCvtRelationShip(dbh, "exists_during", 1)
+	runAnonCvtRelationShip(dbh, "has_regulation_target", 0)
+	runAnonCvtRelationShip(dbh, "in_presence_of", 0)
+}
+
+func runAnonCvtRelationShip(dbh *sqlx.DB, rel string, expected int) {
+
+	q1 := `
+	SELECT anon_cvterm name FROM temp_gpad_extension
+	WHERE anon_cvterm IS NOT NULL
+	AND relationship = $1
+	`
+	q2 := `
+	SELECT COUNT(*) FROM cvterm_relationship
+	JOIN cvterm subject ON
+	subject.cvterm_id = cvterm_relationship.subject_id
+	JOIN cvterm relation ON
+	relation.cvterm_id = cvterm_relationship.type_id
+	JOIN cv ON
+	cv.cv_id = subject.cv_id
+	WHERE subject.name = $1
+	AND cv.name = $2
+	AND relation.name = $3
+	`
+	acv := "annotation extension terms"
+	var aterm string
+	err := dbh.QueryRowx(q1, rel).Scan(&aterm)
+	Expect(err).ShouldNot(HaveOccurred())
+	// is_a relationship with original go term
+	var c1 int
+	err = dbh.QueryRowx(q2, aterm, acv, "is_a").Scan(&c1)
+	Expect(err).ShouldNot(HaveOccurred())
+	Expect(c1).Should(Equal(1))
+	// relationship with extension identifier
+	var c2 int
+	err = dbh.QueryRowx(q2, aterm, acv, rel).Scan(&c2)
+	Expect(err).ShouldNot(HaveOccurred())
+	Expect(c2).Should(Equal(expected))
 }
