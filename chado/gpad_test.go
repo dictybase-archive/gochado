@@ -338,6 +338,10 @@ func TestAnonCvtChadoSqlite(t *testing.T) {
 	rc, err := res.RowsAffected()
 	Expect(err).ShouldNot(HaveOccurred())
 	Expect(int(rc)).Should(Equal(2))
+	runAnonCvprop(dbh)
+}
+
+func runAnonCvprop(dbh *sqlx.DB) {
 	q1 := `
 	SELECT cvtermprop.value FROM cvtermprop
 	JOIN cvterm ON cvterm.cvterm_id = cvtermprop.type_id
@@ -346,10 +350,14 @@ func TestAnonCvtChadoSqlite(t *testing.T) {
 	AND cv.name = 'go/extensions/gorel'
 	`
 	var val string
-	err = dbh.QueryRowx(q1, "has_regulation_target").Scan(&val)
+	err := dbh.QueryRowx(q1, "has_regulation_target").Scan(&val)
 	Expect(err).ShouldNot(HaveOccurred())
 	Expect(val).Should(Equal("UniProtKB:Q54BD4"))
 
+	var val2 string
+	err = dbh.QueryRowx(q1, "in_presence_of").Scan(&val2)
+	Expect(err).ShouldNot(HaveOccurred())
+	Expect(val2).Should(Equal("CHEBI:64672"))
 }
 
 func runAnonCvtRelationShip(dbh *sqlx.DB, rel string, expected int) {
