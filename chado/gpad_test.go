@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"encoding/gob"
 	"log"
-	"os"
 	"testing"
 
 	"github.com/GeertJohan/go.rice"
@@ -13,7 +12,6 @@ import (
 	"github.com/dictybase/testchado"
 	. "github.com/dictybase/testchado/matchers"
 	"github.com/jmoiron/sqlx"
-	"github.com/olekukonko/tablewriter"
 	. "github.com/onsi/gomega"
 )
 
@@ -256,25 +254,6 @@ AND cvterm.name = $2
 	Expect("SELECT COUNT(*) FROM feature_cvterm_pub").Should(HaveCount(1))
 }
 
-func printPubTable(dbh *sqlx.DB) {
-	type pubtable struct {
-		Id         string `db:"pub_id"`
-		Place      string `db:"pubplace"`
-		Uniquename string
-	}
-	pt := []pubtable{}
-	err := dbh.Select(&pt, "SELECT uniquename, pub_id, pubplace FROM pub")
-	if err != nil {
-		log.Fatal(err)
-	}
-	table := tablewriter.NewWriter(os.Stdout)
-	table.SetHeader([]string{"Pubid", "Uniquename", "Pubplace"})
-	for _, rec := range pt {
-		table.Append([]string{rec.Id, rec.Uniquename, rec.Place})
-	}
-	table.Render()
-}
-
 func TestAnonCvtChadoSqlite(t *testing.T) {
 	RegisterTestingT(t)
 	//Setup
@@ -339,6 +318,38 @@ func TestAnonCvtChadoSqlite(t *testing.T) {
 	Expect(err).ShouldNot(HaveOccurred())
 	Expect(int(rc)).Should(Equal(2))
 	runAnonCvprop(dbh)
+
+	//insert all gpad entries expect the extensions
+	doRegularGpadInserts(dbh, p, ont)
+	// insert new feature_cvterm with anon terms
+	runAnonCvtInserts(dbh, p, acv)
+}
+
+func runAnonCvtInserts(dbh *sqlx.DB, p *gochado.SqlParser, acv string) {
+	res, err := dbh.Exec(p.GetSection("insert_anon_feature_cvterm"), acv)
+	Expect(err).ShouldNot(HaveOccurred())
+	rc, err := res.RowsAffected()
+	Expect(err).ShouldNot(HaveOccurred())
+	Expect(int(rc)).Should(Equal(3))
+}
+
+func doRegularGpadInserts(dbh *sqlx.DB, p *gochado.SqlParser, ont string) {
+	// Now fill up the feature_cvterm
+	dbh.MustExec(p.GetSection("insert_feature_cvterm"))
+	// Evidence code
+	dbh.MustExec(p.GetSection("insert_feature_cvtermprop_evcode"))
+	// Extra references
+	dbh.MustExec(p.GetSection("insert_feature_cvterm_pub_reference"))
+	sections := []string{
+		"feature_cvtermprop_qualifier",
+		"feature_cvtermprop_date",
+		"feature_cvtermprop_assigned_by",
+		"feature_cvtermprop_withfrom",
+	}
+	for _, s := range sections {
+		s = "insert_" + s
+		dbh.MustExec(p.GetSection(s)+";", ont)
+	}
 }
 
 func runAnonCvprop(dbh *sqlx.DB) {
