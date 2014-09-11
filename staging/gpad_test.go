@@ -195,7 +195,7 @@ func TestGpadStagingSqliteBulkIndividual(t *testing.T) {
 	Expect(gwm[1].Rank).Should(Equal(1))
 
 	//gpad_extension
-	q := `SELECT tgext.relationship, tgext.db, tgext.id FROM temp_gpad_extension
+	q := `SELECT tgext.relationship, tgext.db, tgext.id, tgext.rank FROM temp_gpad_extension
 	tgext JOIN temp_gpad ON tgext.digest = temp_gpad.digest
 	WHERE temp_gpad.id = $1
 	`
@@ -204,12 +204,14 @@ func TestGpadStagingSqliteBulkIndividual(t *testing.T) {
 		Db           string
 		Id           string
 		Digest       string
+		Rank         int
 	}
 	ge := gext{}
 	err = dbh.Get(&ge, q, "DDB_G0286189")
 	Expect(err).ShouldNot(HaveOccurred())
 	Expect(ge.Relationship).Should(Equal("exists_during"))
 	Expect(ge.Db).Should(Equal("GO"))
+	Expect(ge.Rank).Should(BeAssignableToTypeOf(1))
 
 	q2 := `SELECT tgext.relationship, tgext.db, tgext.id FROM temp_gpad_extension
 	tgext JOIN temp_gpad ON tgext.digest = temp_gpad.digest
