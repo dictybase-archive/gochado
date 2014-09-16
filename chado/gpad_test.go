@@ -2,8 +2,10 @@ package chado
 
 import (
 	"bytes"
+	"database/sql"
 	"encoding/gob"
 	"log"
+	"strconv"
 	"testing"
 
 	"github.com/GeertJohan/go.rice"
@@ -323,6 +325,37 @@ func TestAnonCvtChadoSqlite(t *testing.T) {
 	doRegularGpadInserts(dbh, p, ont)
 	// insert new feature_cvterm with anon terms
 	runAnonCvtInserts(dbh, p, acv)
+	// insert implicit and explicit columns
+	runAnonCvtImplExplInserts(dbh, p, acv)
+}
+
+func runAnonCvtImplExplInserts(dbh *sqlx.DB, p *gochado.SqlParser, acv string) {
+	//ont := "gene_ontology_association"
+	tbl := [][]string{
+		[]string{"insert_feature_cvtermprop_evcode", acv, "", "2"},
+		//[]string{"insert_anon_feature_cvtermprop_qualifier", ont, acv, "2"},
+		//[]string{"insert_feature_cvtermprop_date", ont, acv, "2"},
+		//[]string{"insert_feature_cvtermprop_withfrom", ont, acv, "2"},
+		//[]string{"insert_feature_cvtermprop_assigned_by", ont, acv, "2"},
+		//[]string{"insert_feature_cvterm_pub_reference", acv, "", "2"},
+	}
+
+	for _, entry := range tbl {
+		var res sql.Result
+		var err error
+		if len(entry[2]) == 0 {
+			res, err = dbh.Exec(p.GetSection(entry[0]), entry[1])
+		} else {
+			res, err = dbh.Exec(p.GetSection(entry[0]), entry[1], entry[2])
+		}
+		Expect(err).ShouldNot(HaveOccurred())
+		rc, err := res.RowsAffected()
+		Expect(err).ShouldNot(HaveOccurred())
+		count, err := strconv.Atoi(entry[3])
+		Expect(err).ShouldNot(HaveOccurred())
+		Expect(int(rc)).Should(Equal(count))
+	}
+
 }
 
 func runAnonCvtInserts(dbh *sqlx.DB, p *gochado.SqlParser, acv string) {
