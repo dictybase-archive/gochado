@@ -16,6 +16,10 @@ type Sqlite struct {
 	// Ontology namespace for linking qualifier, date, assigned_by
 	// and with/from values of GPAD records.
 	ontology string
+	// Ontology namespace for anonymous cvterms
+	anonCv string
+	// Db namespace for anonymous cvterms
+	anonDb string
 }
 
 type gpad struct {
@@ -25,9 +29,17 @@ type gpad struct {
 	AssignedBy string `db:"value"`
 }
 
+type anon struct {
+	Name         string
+	Digest       string
+	Id           string
+	Db           string
+	Relationship string
+}
+
 // Create new instatnce of Sqlite structure
-func NewChadoSqlite(dbh *sqlx.DB, parser *gochado.SqlParser, ont string) *Sqlite {
-	return &Sqlite{parser, dbh, ont}
+func NewChadoSqlite(dbh *sqlx.DB, parser *gochado.SqlParser, ont string, acv string, adb string) *Sqlite {
+	return &Sqlite{parser, dbh, ont, acv, adb}
 }
 
 func (sqlite *Sqlite) AlterTables() {
@@ -80,9 +92,30 @@ func (sqlite *Sqlite) BulkLoad() {
 }
 
 func (sqlite *Sqlite) runBulkInserts() {
+	sqlite.createAnonCvterms()
+	sqlite.insertExtraIdenfiers()
+	sqlite.insertNonAnonGpad()
+	sqlite.insertAnonFeatCvt()
+	sqlite.insertAnonImplExpl()
+}
+
+// insert database/sequence identifers that comes in the identifier
+// part of annotation extensions
+func (sqlite *Sqlite) insertExtraIdenfiers() {
 	p := sqlite.sqlparser
 	dbh := sqlite.dbh
+	dbh.MustExec(p.GetSection("insert_anon_cvterm_db_identifier"))
+	dbh.MustExec(p.GetSection("insert_anon_cvterm_dbxref_identifier"))
+}
 
+func (sqlite *Sqlite) insertAnonCvprop() {
+	sqlite.dbh.MustExec(sqlite.sqlparser.GetSection("insert_anon_cvtermprop_extension"), sqlite.anonCv)
+}
+
+//insert all gpad entries expect the extensions
+func (sqlite *Sqlite) insertNonAnonGpad() {
+	p := sqlite.sqlparser
+	dbh := sqlite.dbh
 	// Now fill up the feature_cvterm
 	dbh.MustExec(p.GetSection("insert_feature_cvterm"))
 	// Evidence code
@@ -90,13 +123,63 @@ func (sqlite *Sqlite) runBulkInserts() {
 	// Extra references
 	dbh.MustExec(p.GetSection("insert_feature_cvterm_pub_reference"))
 	sections := []string{
-		"feature_cvtermprop_qualifier",
-		"feature_cvtermprop_date",
-		"feature_cvtermprop_assigned_by",
-		"feature_cvtermprop_withfrom",
+		"insert_feature_cvtermprop_qualifier",
+		"insert_feature_cvtermprop_date",
+		"insert_feature_cvtermprop_assigned_by",
+		"insert_feature_cvtermprop_withfrom",
 	}
 	for _, s := range sections {
-		s = "insert_" + s
-		dbh.MustExec(p.GetSection(s)+";", sqlite.ontology)
+		dbh.MustExec(p.GetSection(s), sqlite.ontology)
 	}
+}
+
+// insert implicit and explicit columns
+func (sqlite *Sqlite) insertAnonImplExpl() {
+	p := sqlite.sqlparser
+	dbh := sqlite.dbh
+	tbl := [][]string{
+		[]string{"insert_anon_feature_cvtermprop_evcode", sqlite.anonCv},
+		[]string{"insert_anon_feature_cvtermprop_qualifier", sqlite.ontology, sqlite.anonCv},
+		[]string{"insert_anon_feature_cvtermprop_date", sqlite.ontology, sqlite.anonCv},
+		[]string{"insert_anon_feature_cvtermprop_withfrom", sqlite.ontology, sqlite.anonCv},
+		[]string{"insert_anon_feature_cvtermprop_assigned_by", sqlite.ontology, sqlite.anonCv},
+		[]string{"insert_anon_feature_cvterm_pub_reference", sqlite.anonCv},
+	}
+
+	for _, entry := range tbl {
+		if len(entry) == 2 {
+			dbh.MustExec(p.GetSection(entry[0]), entry[1])
+		} else {
+			dbh.MustExec(p.GetSection(entry[0]), entry[1], entry[2])
+		}
+	}
+}
+
+// insert new feature_cvterm with anon terms
+func (sqlite *Sqlite) insertAnonFeatCvt() {
+	sqlite.dbh.Exec(sqlite.sqlparser.GetSection("insert_anon_feature_cvterm"), sqlite.anonCv)
+}
+
+//insert anon cvterms relationships
+func (sqlite *Sqlite) insertAnonRelationships() {
+	p := sqlite.sqlparser
+	dbh := sqlite.dbh
+	dbh.MustExec(p.GetSection("insert_anon_cvterm_rel_original"), "ro", sqlite.anonCv)
+	dbh.Exec(p.GetSection("insert_anon_cvterm_rel_extension"), sqlite.anonCv)
+}
+
+func (sqlite *Sqlite) createAnonCvterms() {
+	p := sqlite.sqlparser
+	dbh := sqlite.dbh
+	an := []anon{}
+	err := dbh.Select(&an, p.GetSection("select_anon_cvterm"))
+	if err != nil {
+		log.Fatal(err)
+	}
+	for _, a := range an {
+		q := p.GetSection("update_temp_with_anon_cvterm")
+		dbh.MustExec(q, a.Name, a.Digest, a.Id, a.Db, a.Relationship)
+	}
+	dbh.MustExec(p.GetSection("insert_anon_cvterm_in_dbxref"), sqlite.anonDb)
+	dbh.MustExec(p.GetSection("insert_anon_cvterm"), sqlite.anonCv, sqlite.anonDb)
 }

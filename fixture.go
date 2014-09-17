@@ -115,3 +115,51 @@ func (f *GpadFixtureLoader) LoadMiscCvterms(cv string) []Cvterm {
 	}
 	return cvterms
 }
+
+func (f *GpadFixtureLoader) LoadAnonNamespaces() {
+	helper := f.helper
+	_, err := helper.FindOrCreateCvId("annotation extension terms")
+	if err != nil {
+		log.Fatal(err)
+	}
+	_, err = helper.FindOrCreateCvId("go/extensions/gorel")
+	if err != nil {
+		log.Fatal(err)
+	}
+	_, err = helper.FindOrCreateDbId("dictyBase")
+	if err != nil {
+		log.Fatal(err)
+	}
+}
+
+func (f *GpadFixtureLoader) LoadCvterms(cvtslice []map[string]string) []Cvterm {
+	helper := f.helper
+	gorm := f.gorm
+	cvterms := make([]Cvterm, 0)
+	for _, cvtm := range cvtslice {
+		id, err := helper.CreateCvtermId(cvtm)
+		if err != nil {
+			log.Fatalf("Helper unable to create cvterm %s\n", err)
+		}
+		var cvt Cvterm
+		gorm.Where("cvterm_id = ?", id).First(&cvt)
+		cvterms = append(cvterms, cvt)
+	}
+	return cvterms
+}
+
+func (f *GpadFixtureLoader) LoadDbxrefs(xrefs []string) []Dbxref {
+	helper := f.helper
+	gorm := f.gorm
+	dbxrefs := make([]Dbxref, 0)
+	for _, r := range xrefs {
+		id, xr, err := helper.NormaLizeId(r)
+		if err != nil {
+			log.Fatal(err)
+		}
+		x := Dbxref{Accession: xr, DbId: int64(id)}
+		gorm.Save(&x)
+		dbxrefs = append(dbxrefs, x)
+	}
+	return dbxrefs
+}

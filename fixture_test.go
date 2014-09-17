@@ -3,12 +3,23 @@ package gochado
 import (
 	"encoding/gob"
 	"log"
+	"path/filepath"
+	"runtime"
 	"testing"
 
 	"github.com/GeertJohan/go.rice"
-	"github.com/dictybase/testchado"
 	. "github.com/onsi/gomega"
+	"gopkg.in/dictybase/testchado.v1"
+	. "gopkg.in/dictybase/testchado.v1/matchers"
 )
+
+func getDataDir() string {
+	_, file, _, ok := runtime.Caller(1)
+	if !ok {
+		log.Fatal("unable to locate the data dir")
+	}
+	return filepath.Join(filepath.Dir(file), "data")
+}
 
 func TestGpadFixtureLoader(t *testing.T) {
 	RegisterTestingT(t)
@@ -48,18 +59,63 @@ func TestGpadFixtureLoader(t *testing.T) {
 	if err != nil {
 		log.Fatal(err)
 	}
-	goterm := f.LoadGoIds(goids)
-	Expect(goterm).Should(HaveLen(9), "expected 9 goterms")
+	goterms := f.LoadGoIds(goids)
+	Expect(goterms).Should(HaveLen(10), "expected 10 goterms")
 
 	gorm := f.gorm
 	dbxref := Dbxref{}
 	db := Db{}
-	for _, cvterm := range goterm {
+	for _, cvterm := range goterms {
 		gorm.Model(&cvterm).Related(&dbxref)
 		gorm.First(&db, dbxref.DbId)
 		Expect(db.Name).Should(Equal("GO"), "Expected GO")
 	}
 
-	mterm := f.LoadMiscCvterms("gene_ontology_association")
-	Expect(mterm).Should(HaveLen(4), "expected 4 misc terms")
+	mterms := f.LoadMiscCvterms("gene_ontology_association")
+	Expect(mterms).Should(HaveLen(4), "expected 4 misc terms")
+
+	// Anonymous namespaces
+	f.LoadAnonNamespaces()
+	cvs := []string{
+		"annotation extension terms",
+		"go/extensions/gorel",
+	}
+	for _, c := range cvs {
+		Expect(chado).Should(HaveCv(c))
+	}
+	// Extension cvterms
+	var cvtslice []map[string]string
+	err = dec.Decode(&cvtslice)
+	if err != nil {
+		log.Fatal(err)
+	}
+	Expect(cvtslice).Should(HaveLen(3))
+	exterms := f.LoadCvterms(cvtslice)
+	Expect(exterms).Should(HaveLen(3))
+	for i, cvt := range exterms {
+		Expect(cvt.Name).Should(Equal(cvtslice[i]["cvterm"]))
+	}
+
+	// Dbxrefs
+	var xrefs []string
+	err = dec.Decode(&xrefs)
+	if err != nil {
+		log.Fatalf("decoding err in xref %s", err)
+	}
+	Expect(xrefs).Should(HaveLen(2))
+	dbxrefs := f.LoadDbxrefs(xrefs)
+	Expect(dbxrefs).Should(HaveLen(2))
+
+	// Relationship cvterms
+	var rslice []map[string]string
+	err = dec.Decode(&rslice)
+	if err != nil {
+		log.Fatalf("unable to decode %s\n", err)
+	}
+	Expect(rslice).Should(HaveLen(1))
+	rterms := f.LoadCvterms(rslice)
+	Expect(rterms).Should(HaveLen(1))
+	for i, cvt := range rterms {
+		Expect(cvt.Name).Should(Equal(rslice[i]["cvterm"]))
+	}
 }

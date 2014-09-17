@@ -191,7 +191,7 @@ func (sqlite *Sqlite) addExtensionDataRow(d string, digest interface{}) {
 	if strings.Contains(d, "|") {
 		// Handle multiple values
 		aextn := strings.Split(d, "|")
-		for _, value := range aextn {
+		for i, value := range aextn {
 			if m := er.FindStringSubmatch(value); m != nil {
 				gext := make(map[string]interface{})
 				dbxref := strings.Split(m[2], ":")
@@ -199,6 +199,7 @@ func (sqlite *Sqlite) addExtensionDataRow(d string, digest interface{}) {
 				gext["id"] = dbxref[1]
 				gext["relationship"] = m[1]
 				gext["digest"] = digest
+				gext["rank"] = i + 1
 				sqlite.buckets["gpad_extension"].Push(gext)
 			}
 		}
