@@ -280,6 +280,8 @@ func TestAnonCvtChadoSqlite(t *testing.T) {
 		Db           string
 		Relationship string
 	}
+
+	// generate anon cvterm
 	an := []anon{}
 	err = dbh.Select(&an, p.GetSection("select_anon_cvterm"))
 	Expect(err).ShouldNot(HaveOccurred())
@@ -305,39 +307,27 @@ func TestAnonCvtChadoSqlite(t *testing.T) {
 	_ = dbh.MustExec(p.GetSection("insert_anon_cvterm_dbxref_identifier"))
 
 	//insert anon cvterms relationships
-	_, err = dbh.Exec(p.GetSection("insert_anon_cvterm_rel_original"), "ro", acv)
-	Expect(err).ShouldNot(HaveOccurred())
-	_, err = dbh.Exec(p.GetSection("insert_anon_cvterm_rel_extension"), acv)
-	Expect(err).ShouldNot(HaveOccurred())
-	runAnonCvtRelationShip(dbh, "exists_during", 1)
-	runAnonCvtRelationShip(dbh, "has_regulation_target", 0)
-	runAnonCvtRelationShip(dbh, "in_presence_of", 0)
-
+	runAnonCvtRelationShip(dbh, p, acv)
 	// insert anon cvtermprop for database/sequence identifies
-	res, err := dbh.Exec(p.GetSection("insert_anon_cvtermprop_extension"), acv)
-	Expect(err).ShouldNot(HaveOccurred())
-	rc, err := res.RowsAffected()
-	Expect(err).ShouldNot(HaveOccurred())
-	Expect(int(rc)).Should(Equal(2))
-	runAnonCvprop(dbh)
-
+	runAnonCvprop(dbh, p, acv)
 	//insert all gpad entries expect the extensions
 	doRegularGpadInserts(dbh, p, ont)
 	// insert new feature_cvterm with anon terms
 	runAnonCvtInserts(dbh, p, acv)
 	// insert implicit and explicit columns
-	runAnonCvtImplExplInserts(dbh, p, acv)
+	runAnonCvtImplExplInserts(dbh, p, acv, ont)
+	// check for total count after all insertions
+	runAnonCvtImplExplCounts(ont)
 }
 
-func runAnonCvtImplExplInserts(dbh *sqlx.DB, p *gochado.SqlParser, acv string) {
-	//ont := "gene_ontology_association"
+func runAnonCvtImplExplInserts(dbh *sqlx.DB, p *gochado.SqlParser, acv string, ont string) {
 	tbl := [][]string{
-		[]string{"insert_feature_cvtermprop_evcode", acv, "", "2"},
-		//[]string{"insert_anon_feature_cvtermprop_qualifier", ont, acv, "2"},
-		//[]string{"insert_feature_cvtermprop_date", ont, acv, "2"},
-		//[]string{"insert_feature_cvtermprop_withfrom", ont, acv, "2"},
-		//[]string{"insert_feature_cvtermprop_assigned_by", ont, acv, "2"},
-		//[]string{"insert_feature_cvterm_pub_reference", acv, "", "2"},
+		[]string{"insert_anon_feature_cvtermprop_evcode", acv, "", "3"},
+		[]string{"insert_anon_feature_cvtermprop_qualifier", ont, acv, "3"},
+		[]string{"insert_anon_feature_cvtermprop_date", ont, acv, "3"},
+		[]string{"insert_anon_feature_cvtermprop_withfrom", ont, acv, "0"},
+		[]string{"insert_anon_feature_cvtermprop_assigned_by", ont, acv, "3"},
+		[]string{"insert_anon_feature_cvterm_pub_reference", acv, "", "0"},
 	}
 
 	for _, entry := range tbl {
@@ -385,7 +375,13 @@ func doRegularGpadInserts(dbh *sqlx.DB, p *gochado.SqlParser, ont string) {
 	}
 }
 
-func runAnonCvprop(dbh *sqlx.DB) {
+func runAnonCvprop(dbh *sqlx.DB, p *gochado.SqlParser, acv string) {
+	res, err := dbh.Exec(p.GetSection("insert_anon_cvtermprop_extension"), acv)
+	Expect(err).ShouldNot(HaveOccurred())
+	rc, err := res.RowsAffected()
+	Expect(err).ShouldNot(HaveOccurred())
+	Expect(int(rc)).Should(Equal(2))
+
 	q1 := `
 	SELECT cvtermprop.value FROM cvtermprop
 	JOIN cvterm ON cvterm.cvterm_id = cvtermprop.type_id
@@ -394,7 +390,7 @@ func runAnonCvprop(dbh *sqlx.DB) {
 	AND cv.name = 'go/extensions/gorel'
 	`
 	var val string
-	err := dbh.QueryRowx(q1, "has_regulation_target").Scan(&val)
+	err = dbh.QueryRowx(q1, "has_regulation_target").Scan(&val)
 	Expect(err).ShouldNot(HaveOccurred())
 	Expect(val).Should(Equal("UniProtKB:Q54BD4"))
 
@@ -404,7 +400,11 @@ func runAnonCvprop(dbh *sqlx.DB) {
 	Expect(val2).Should(Equal("CHEBI:64672"))
 }
 
-func runAnonCvtRelationShip(dbh *sqlx.DB, rel string, expected int) {
+func runAnonCvtRelationShip(dbh *sqlx.DB, p *gochado.SqlParser, acv string) {
+	_, err := dbh.Exec(p.GetSection("insert_anon_cvterm_rel_original"), "ro", acv)
+	Expect(err).ShouldNot(HaveOccurred())
+	_, err = dbh.Exec(p.GetSection("insert_anon_cvterm_rel_extension"), acv)
+	Expect(err).ShouldNot(HaveOccurred())
 
 	q1 := `
 	SELECT anon_cvterm name FROM temp_gpad_extension
@@ -423,18 +423,52 @@ func runAnonCvtRelationShip(dbh *sqlx.DB, rel string, expected int) {
 	AND cv.name = $2
 	AND relation.name = $3
 	`
-	acv := "annotation extension terms"
-	var aterm string
-	err := dbh.QueryRowx(q1, rel).Scan(&aterm)
-	Expect(err).ShouldNot(HaveOccurred())
-	// is_a relationship with original go term
-	var c1 int
-	err = dbh.QueryRowx(q2, aterm, acv, "is_a").Scan(&c1)
-	Expect(err).ShouldNot(HaveOccurred())
-	Expect(c1).Should(Equal(1))
-	// relationship with extension identifier
-	var c2 int
-	err = dbh.QueryRowx(q2, aterm, acv, rel).Scan(&c2)
-	Expect(err).ShouldNot(HaveOccurred())
-	Expect(c2).Should(Equal(expected))
+
+	tbl := map[string]int{
+		"exists_during":         1,
+		"has_regulation_target": 0,
+		"in_presence_of":        0,
+	}
+	for k, v := range tbl {
+		var aterm string
+		err = dbh.QueryRowx(q1, k).Scan(&aterm)
+		Expect(err).ShouldNot(HaveOccurred())
+		// is_a relationship with original go term
+		var c1 int
+		err = dbh.QueryRowx(q2, aterm, acv, "is_a").Scan(&c1)
+		Expect(err).ShouldNot(HaveOccurred())
+		Expect(c1).Should(Equal(1))
+		// relationship with extension identifier
+		var c2 int
+		err = dbh.QueryRowx(q2, aterm, acv, k).Scan(&c2)
+		Expect(err).ShouldNot(HaveOccurred())
+		Expect(c2).Should(Equal(v))
+	}
+}
+
+func runAnonCvtImplExplCounts(ont string) {
+	q := `
+SELECT COUNT(*) FROM feature_cvtermprop
+WHERE type_id = (
+SELECT cvterm_id FROM cvterm
+JOIN cv ON cv.cv_id = cvterm.cv_id
+WHERE cv.name = $1
+AND cvterm.name = $2
+)
+`
+	m := make(map[string]interface{})
+	m["params"] = append(make([]interface{}, 0), ont, "qualifier")
+	m["count"] = 13
+	Expect(q).Should(HaveNameCount(m))
+
+	m["params"] = append(make([]interface{}, 0), ont, "date")
+	Expect(q).Should(HaveNameCount(m))
+
+	m["params"] = append(make([]interface{}, 0), ont, "source")
+	Expect(q).Should(HaveNameCount(m))
+
+	m["params"] = append(make([]interface{}, 0), ont, "with")
+	m["count"] = 6
+	Expect(q).Should(HaveNameCount(m))
+	Expect("SELECT COUNT(*) FROM feature_cvterm_pub").Should(HaveCount(1))
 }
