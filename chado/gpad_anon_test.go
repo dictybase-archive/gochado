@@ -36,7 +36,6 @@ func TestAnonCvtChadoSqlite(t *testing.T) {
 		Relationship string
 	}
 
-	// generate anon cvterm
 	an := []anon{}
 	err = dbh.Select(&an, p.GetSection("select_anon_cvterm"))
 	Expect(err).ShouldNot(HaveOccurred())
@@ -72,7 +71,14 @@ func TestAnonCvtChadoSqlite(t *testing.T) {
 	// insert implicit and explicit columns
 	runAnonCvtImplExplInserts(dbh, p, acv, ont)
 	// check for total count after all insertions
-	runAnonCvtImplExplCounts(ont)
+	tbl := map[string]int{
+		"qualifier": 13,
+		"date":      13,
+		"source":    13,
+		"with":      6,
+		"pub":       1,
+	}
+	runAnonCvtImplExplCounts(ont, tbl)
 }
 
 func runAnonCvtImplExplInserts(dbh *sqlx.DB, p *gochado.SqlParser, acv string, ont string) {
@@ -201,7 +207,7 @@ func runAnonCvtRelationShip(dbh *sqlx.DB, p *gochado.SqlParser, acv string) {
 	}
 }
 
-func runAnonCvtImplExplCounts(ont string) {
+func runAnonCvtImplExplCounts(ont string, tbl map[string]int) {
 	q := `
 SELECT COUNT(*) FROM feature_cvtermprop
 WHERE type_id = (
@@ -213,17 +219,19 @@ AND cvterm.name = $2
 `
 	m := make(map[string]interface{})
 	m["params"] = append(make([]interface{}, 0), ont, "qualifier")
-	m["count"] = 13
+	m["count"] = tbl["qualifier"]
 	Expect(q).Should(HaveNameCount(m))
 
 	m["params"] = append(make([]interface{}, 0), ont, "date")
+	m["count"] = tbl["date"]
 	Expect(q).Should(HaveNameCount(m))
 
 	m["params"] = append(make([]interface{}, 0), ont, "source")
+	m["count"] = tbl["source"]
 	Expect(q).Should(HaveNameCount(m))
 
 	m["params"] = append(make([]interface{}, 0), ont, "with")
-	m["count"] = 6
+	m["count"] = tbl["with"]
 	Expect(q).Should(HaveNameCount(m))
-	Expect("SELECT COUNT(*) FROM feature_cvterm_pub").Should(HaveCount(1))
+	Expect("SELECT COUNT(*) FROM feature_cvterm_pub").Should(HaveCount(tbl["pub"]))
 }
