@@ -85,43 +85,28 @@ func TestGpadChadoSqliteBulk(t *testing.T) {
 	chado := setup.chado
 	dbh := chado.DBHandle()
 	ont := "gene_ontology_association"
+	acv := "annotation extension terms"
+	adb := "dictyBase"
 	//Teardown
 	defer chado.DropSchema()
 
-	sqlite := NewChadoSqlite(dbh, setup.parser, ont)
+	sqlite := NewChadoSqlite(dbh, setup.parser, ont, acv, adb)
 	sqlite.BulkLoad()
 	Expect("SELECT COUNT(*) FROM temp_gpad_new").Should(HaveCount(12))
-	Expect("SELECT COUNT(*) FROM feature_cvterm").Should(HaveCount(10))
+	Expect("SELECT COUNT(*) FROM feature_cvterm").Should(HaveCount(13))
 	eq := `
 SELECT COUNT(*)  FROM feature_cvtermprop
 JOIN cvterm ON cvterm.cvterm_id = feature_cvtermprop.type_id
 JOIN cv ON cv.cv_id = cvterm.cv_id
 WHERE cv.name = "eco"
 `
-	Expect(eq).Should(HaveCount(10))
-
-	q := `
-SELECT COUNT(*) FROM feature_cvtermprop
-WHERE type_id = (
-SELECT cvterm_id FROM cvterm
-JOIN cv ON cv.cv_id = cvterm.cv_id
-WHERE cv.name = $1
-AND cvterm.name = $2
-)
-`
-	m := make(map[string]interface{})
-	m["params"] = append(make([]interface{}, 0), ont, "qualifier")
-	m["count"] = 10
-	Expect(q).Should(HaveNameCount(m))
-
-	m["params"] = append(make([]interface{}, 0), ont, "date")
-	Expect(q).Should(HaveNameCount(m))
-
-	m["params"] = append(make([]interface{}, 0), ont, "source")
-	Expect(q).Should(HaveNameCount(m))
-
-	m["params"] = append(make([]interface{}, 0), ont, "with")
-	m["count"] = 6
-	Expect(q).Should(HaveNameCount(m))
-	Expect("SELECT COUNT(*) FROM feature_cvterm_pub").Should(HaveCount(1))
+	Expect(eq).Should(HaveCount(13))
+	tbl := map[string]int{
+		"qualifier": 13,
+		"date":      13,
+		"source":    13,
+		"with":      6,
+		"pub":       1,
+	}
+	runAnonCvtImplExplCounts(ont, tbl)
 }
