@@ -110,6 +110,29 @@ func LoadGpadStagingSqlite(chado testchado.DBManager, b *rice.Box, sql string) {
 	staging.BulkLoad()
 }
 
+// Loads updated GPAD test file
+func LoadUpdatedGpadStagingSqlite(chado testchado.DBManager, b *rice.Box, sql string) {
+	// test struct creation and table handling
+	staging := staging.NewStagingSqlite(chado.DBHandle(), gochado.NewSqlParserFromString(sql))
+	staging.ResetTables()
+
+	// test data buffering
+	gpstr, err := b.String("test_updated.gpad")
+	if err != nil {
+		log.Fatal(err)
+	}
+	buff := bytes.NewBufferString(gpstr)
+	for {
+		line, err := buff.ReadString('\n')
+		if err != nil {
+			break
+		}
+		staging.AddDataRow(line)
+	}
+	//bulkload testing
+	staging.BulkLoad()
+}
+
 func setUpSqliteTest() *chadoTest {
 	chado := testchado.NewSQLiteManager()
 	RegisterDBHandler(chado)
