@@ -231,7 +231,20 @@ func (sqlite *Sqlite) DropTables() {
 func (sqlite *Sqlite) AlterTables() {
 }
 
+func (sqlite *Sqlite) ResetTables() {
+	for name := range sqlite.buckets {
+		sqlite.ChadoHelper.ChadoHandler.MustExec("DELETE FROM ?", name)
+	}
+}
+
+func (sqlite *Sqlite) PreLoad() {
+}
+
+func (sqlite *Sqlite) PostLoad() {
+}
+
 func (sqlite *Sqlite) BulkLoad() {
+	sqlite.PreLoad()
 	//Here is how it works...
 	//Get name of each staging table
 	for name := range sqlite.buckets {
@@ -253,6 +266,7 @@ func (sqlite *Sqlite) BulkLoad() {
 		}
 		sqlite.ChadoHelper.ChadoHandler.MustExec(str.String())
 	}
+	sqlite.PostLoad()
 }
 
 func ElementToValueString(element map[string]interface{}, columns []string) []string {
