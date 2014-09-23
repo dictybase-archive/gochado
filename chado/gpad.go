@@ -68,27 +68,39 @@ func (sqlite *Sqlite) BulkLoad() {
 		// fresh load
 		sqlite.runBulkInserts()
 	} else {
+		// tag the records in staging that could be updated
+		sqlite.markUpdatable()
 		// merge load means two steps first insert the new record
 		// then update the existing one
-		gp := []gpad{}
-		err := dbh.Select(&gp, p.GetSection("select_all_gpads_from_chado"), sqlite.ontology)
+		sqlite.runBulkInserts()
+		sqlite.runBulkUpdates()
+	}
+}
+
+func (sqlite *Sqlite) markUpdatable() {
+	p := sqlite.sqlparser
+	dbh := sqlite.dbh
+	gp := []gpad{}
+	err := dbh.Select(&gp, p.GetSection("select_all_gpads_from_chado"), sqlite.ontology)
+	if err != nil {
+		log.Fatal(err)
+	}
+	for _, rec := range gp {
+		mds := gochado.GetMD5Hash(rec.DbId + rec.GoId + rec.Evcode + rec.AssignedBy)
+		var ct int
+		err := dbh.QueryRowx(p.GetSection("count_temp_gpad_new_by_checksum"), mds).Scan(&ct)
 		if err != nil {
 			log.Fatal(err)
 		}
-		for _, rec := range gp {
-			mds := gochado.GetMD5Hash(rec.DbId + rec.GoId + rec.Evcode + rec.AssignedBy)
-			var ct int
-			err := dbh.QueryRowx(p.GetSection("count_temp_gpad_new_by_checksum"), mds).Scan(&ct)
-			if err != nil {
-				log.Fatal(err)
-			}
-			if ct > 0 {
-				// record exist, mark for update step
-				dbh.MustExec(p.GetSection("update_temp_gpad_new_by_checksum"), mds)
-			}
+		if ct > 0 {
+			// record exist, mark for update step
+			dbh.MustExec(p.GetSection("update_temp_gpad_new_by_checksum"), mds)
 		}
-		sqlite.runBulkInserts()
 	}
+}
+
+func (sqlite *Sqlite) runBulkUpdates() {
+
 }
 
 func (sqlite *Sqlite) runBulkInserts() {
