@@ -66,18 +66,18 @@ func (sqlite *Sqlite) BulkLoad() {
 	}
 	if count == 0 {
 		// fresh load
-		sqlite.runBulkInserts()
+		sqlite.RunBulkInserts()
 	} else {
 		// tag the records in staging that could be updated
-		sqlite.markUpdatable()
+		sqlite.MarkUpdatable()
 		// merge load means two steps first insert the new record
 		// then update the existing one
-		sqlite.runBulkInserts()
-		sqlite.runBulkUpdates()
+		sqlite.RunBulkInserts()
+		sqlite.RunBulkUpdates()
 	}
 }
 
-func (sqlite *Sqlite) markUpdatable() {
+func (sqlite *Sqlite) MarkUpdatable() {
 	p := sqlite.sqlparser
 	dbh := sqlite.dbh
 	gp := []gpad{}
@@ -99,13 +99,13 @@ func (sqlite *Sqlite) markUpdatable() {
 	}
 }
 
-func (sqlite *Sqlite) runBulkUpdates() {
+func (sqlite *Sqlite) RunBulkUpdates() {
 
 }
 
-func (sqlite *Sqlite) runBulkInserts() {
+func (sqlite *Sqlite) RunBulkInserts() {
 	sqlite.createAnonCvterms()
-	sqlite.insertExtraIdenfiers()
+	sqlite.insertExtraIdentifiers()
 	sqlite.insertNonAnonGpad()
 	sqlite.insertAnonFeatCvt()
 	sqlite.insertAnonImplExpl()
@@ -113,7 +113,7 @@ func (sqlite *Sqlite) runBulkInserts() {
 
 // insert database/sequence identifers that comes in the identifier
 // part of annotation extensions
-func (sqlite *Sqlite) insertExtraIdenfiers() {
+func (sqlite *Sqlite) insertExtraIdentifiers() {
 	p := sqlite.sqlparser
 	dbh := sqlite.dbh
 	dbh.MustExec(p.GetSection("insert_anon_cvterm_db_identifier"))
@@ -124,7 +124,7 @@ func (sqlite *Sqlite) insertAnonCvprop() {
 	sqlite.dbh.MustExec(sqlite.sqlparser.GetSection("insert_anon_cvtermprop_extension"), sqlite.anonCv)
 }
 
-//insert all gpad entries expect the extensions
+//insert all gpad entries expect the ones with extensions
 func (sqlite *Sqlite) insertNonAnonGpad() {
 	p := sqlite.sqlparser
 	dbh := sqlite.dbh
