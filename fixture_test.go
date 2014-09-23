@@ -60,7 +60,7 @@ func TestGpadFixtureLoader(t *testing.T) {
 		log.Fatal(err)
 	}
 	goterms := f.LoadGoIds(goids)
-	Expect(goterms).Should(HaveLen(10), "expected 10 goterms")
+	Expect(goterms).Should(HaveLen(11), "expected 11 goterms")
 
 	gorm := f.gorm
 	dbxref := Dbxref{}
