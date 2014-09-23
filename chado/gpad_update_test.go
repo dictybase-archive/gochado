@@ -1,9 +1,10 @@
 package chado
 
 import (
+	"fmt"
 	"testing"
 
-	//. "github.com/dictybase/testchado/matchers"
+	. "github.com/dictybase/testchado/matchers"
 	. "github.com/onsi/gomega"
 )
 
@@ -35,7 +36,7 @@ func TestGpadUpdateSqlite(t *testing.T) {
 
 	// Check the number of updatable entries
 	var ct int
-	err := dbh.QueryRowx("SELECT COUNT(*) FROM temp_gpad_new WHERE is_update = 1").Scan(&ct)
-	Expect(err).ShouldNot(HaveOccurred())
-	Expect(ct).Should(Equal(4))
+	_ = dbh.QueryRowx("SELECT COUNT(*) FROM temp_gpad_new").Scan(&ct)
+	fmt.Println(ct)
+	Expect("SELECT COUNT(*) FROM temp_gpad_new WHERE is_update = 1").Should(HaveCount(4))
 }
