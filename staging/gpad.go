@@ -232,8 +232,8 @@ func (sqlite *Sqlite) AlterTables() {
 }
 
 func (sqlite *Sqlite) ResetTables() {
-	for name := range sqlite.buckets {
-		sqlite.ChadoHelper.ChadoHandler.MustExec("DELETE FROM ?", name)
+	for _, name := range sqlite.tables {
+		sqlite.ChadoHelper.ChadoHandler.MustExec("DELETE FROM " + name)
 	}
 }
 
