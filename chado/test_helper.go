@@ -10,6 +10,7 @@ import (
 	"github.com/dictybase/gochado/staging"
 	"github.com/dictybase/testchado"
 	. "github.com/dictybase/testchado/matchers"
+	"github.com/jmoiron/sqlx"
 )
 
 type chadoTest struct {
@@ -88,9 +89,9 @@ func LoadGpadChadoFixtureSqlite(chado testchado.DBManager, b *rice.Box) {
 }
 
 // Loads GPAD test file to staging tables
-func LoadGpadStagingSqlite(chado testchado.DBManager, b *rice.Box, sql string) {
+func LoadGpadStagingSqlite(dbh *sqlx.DB, b *rice.Box, sql string) {
 	// test struct creation and table handling
-	staging := staging.NewStagingSqlite(chado.DBHandle(), gochado.NewSqlParserFromString(sql))
+	staging := staging.NewStagingSqlite(dbh, gochado.NewSqlParserFromString(sql))
 	staging.CreateTables()
 
 	// test data buffering
@@ -111,9 +112,9 @@ func LoadGpadStagingSqlite(chado testchado.DBManager, b *rice.Box, sql string) {
 }
 
 // Loads updated GPAD test file
-func LoadUpdatedGpadStagingSqlite(chado testchado.DBManager, b *rice.Box, sql string) {
+func LoadUpdatedGpadStagingSqlite(dbh *sqlx.DB, b *rice.Box, p *gochado.SqlParser) {
 	// test struct creation and table handling
-	staging := staging.NewStagingSqlite(chado.DBHandle(), gochado.NewSqlParserFromString(sql))
+	staging := staging.NewStagingSqlite(dbh, p)
 	staging.ResetTables()
 
 	// test data buffering
@@ -144,7 +145,7 @@ func setUpSqliteTest() *chadoTest {
 		log.Fatalf("could not open file sqlite_gpad.ini from rice box error:%s", err)
 	}
 	// Loads test gpad file in staging
-	LoadGpadStagingSqlite(chado, b, str)
+	LoadGpadStagingSqlite(chado.DBHandle(), b, str)
 	// Loads fixtures needed for testing in chado
 	LoadGpadChadoFixtureSqlite(chado, b)
 
