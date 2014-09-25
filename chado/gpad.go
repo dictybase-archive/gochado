@@ -56,11 +56,13 @@ func (sqlite *Sqlite) BulkLoad() {
 
 	// -- Inserting new records
 	// First get latest GAF records in another staging table
+	// The records with their date field updated will be transfered
 	dbh.MustExec(p.GetSection("insert_latest_goa_from_staging"), sqlite.ontology)
 
 	// Now check if its a fresh load or a merge load
 	var count int
-	err := dbh.QueryRowx(p.GetSection("count_all_gpads_from_chado"), sqlite.ontology).Scan(&count)
+	// Count all gpads including those linked with anon cvterms
+	err := dbh.QueryRowx(p.GetSection("count_all_gpads_from_chado"), sqlite.anonCv, sqlite.ontology).Scan(&count)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -69,6 +71,7 @@ func (sqlite *Sqlite) BulkLoad() {
 		sqlite.RunBulkInserts()
 	} else {
 		// tag the records in staging that could be updated
+		// these will also includes records with annotation extensions
 		sqlite.MarkUpdatable()
 		// merge load means two steps first insert the new record
 		// then update the existing one
@@ -81,7 +84,7 @@ func (sqlite *Sqlite) MarkUpdatable() {
 	p := sqlite.sqlparser
 	dbh := sqlite.dbh
 	gp := []gpad{}
-	err := dbh.Select(&gp, p.GetSection("select_all_gpads_from_chado"), sqlite.ontology)
+	err := dbh.Select(&gp, p.GetSection("select_all_gpads_from_chado"), sqlite.ontology, sqlite.anonCv, sqlite.ontology)
 	if err != nil {
 		log.Fatal(err)
 	}
