@@ -1,7 +1,6 @@
 package chado
 
 import (
-	"fmt"
 	"testing"
 
 	. "github.com/dictybase/testchado/matchers"
@@ -34,9 +33,10 @@ func TestGpadUpdateSqlite(t *testing.T) {
 	//Teardown
 	defer chado.DropSchema()
 
+	// Total entries that will be transfered to chado
+	Expect("SELECT COUNT(*) FROM temp_gpad_new").Should(HaveCount(5))
+	// Check the number of new entries
+	Expect("SELECT COUNT(*) FROM temp_gpad_new where is_update = 0").Should(HaveCount(1))
 	// Check the number of updatable entries
-	var ct int
-	_ = dbh.QueryRowx("SELECT COUNT(*) FROM temp_gpad_new").Scan(&ct)
-	fmt.Println(ct)
 	Expect("SELECT COUNT(*) FROM temp_gpad_new WHERE is_update = 1").Should(HaveCount(4))
 }
