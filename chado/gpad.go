@@ -91,6 +91,7 @@ func (sqlite *Sqlite) MarkUpdatable() {
 	for _, rec := range gp {
 		mds := gochado.GetMD5Hash(rec.DbId + rec.GoId + rec.Evcode + rec.AssignedBy)
 		var ct int
+		// check if the record is new or is an update
 		err := dbh.QueryRowx(p.GetSection("count_temp_gpad_new_by_checksum"), mds).Scan(&ct)
 		if err != nil {
 			log.Fatal(err)
@@ -134,9 +135,9 @@ func (sqlite *Sqlite) insertNonAnonGpad() {
 	// Now fill up the feature_cvterm
 	dbh.MustExec(p.GetSection("insert_feature_cvterm"))
 	// Evidence code
-	dbh.MustExec(p.GetSection("insert_feature_cvtermprop_evcode"))
+	dbh.MustExec(p.GetSection("insert_feature_cvtermprop_evcode"), 0)
 	// Extra references
-	dbh.MustExec(p.GetSection("insert_feature_cvterm_pub_reference"))
+	dbh.MustExec(p.GetSection("insert_feature_cvterm_pub_reference"), 0)
 	sections := []string{
 		"insert_feature_cvtermprop_qualifier",
 		"insert_feature_cvtermprop_date",
@@ -144,7 +145,7 @@ func (sqlite *Sqlite) insertNonAnonGpad() {
 		"insert_feature_cvtermprop_withfrom",
 	}
 	for _, s := range sections {
-		dbh.MustExec(p.GetSection(s), sqlite.ontology)
+		dbh.MustExec(p.GetSection(s), sqlite.ontology, 0)
 	}
 }
 
@@ -163,9 +164,9 @@ func (sqlite *Sqlite) insertAnonImplExpl() {
 
 	for _, entry := range tbl {
 		if len(entry) == 2 {
-			dbh.MustExec(p.GetSection(entry[0]), entry[1])
+			dbh.MustExec(p.GetSection(entry[0]), entry[1], 0)
 		} else {
-			dbh.MustExec(p.GetSection(entry[0]), entry[1], entry[2])
+			dbh.MustExec(p.GetSection(entry[0]), entry[1], entry[2], 0)
 		}
 	}
 }
