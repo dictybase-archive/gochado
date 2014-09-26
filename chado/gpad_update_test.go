@@ -39,4 +39,16 @@ func TestGpadUpdateSqlite(t *testing.T) {
 	Expect("SELECT COUNT(*) FROM temp_gpad_new where is_update = 0").Should(HaveCount(1))
 	// Check the number of updatable entries
 	Expect("SELECT COUNT(*) FROM temp_gpad_new WHERE is_update = 1").Should(HaveCount(4))
+
+	// Now update the records, here we go by delete and insert
+	// It will be qualifier, withfrom and extra pubs
+	type tstr struct {
+		block string
+		count int
+	}
+	tbl := map[string]int{
+		"delete_feature_cvtermprop_qualifier": 3,
+		"delete_feature_cvtermprop_withfrom":  3,
+		"delete_feature_cvterm_pub":           0,
+	}
 }
