@@ -50,6 +50,10 @@ func TestGpadUpdateSqlite(t *testing.T) {
 		runRegularGpadExpl(dbh, p.GetSection(k), v, ont)
 	}
 	runRegularGpadImpl(dbh, p.GetSection("delete_feature_cvterm_pub"), 0)
+
+	// Run bulk insert again to insert new record
+	sqlite.RunBulkInserts()
+	Expect("SELECT COUNT(*) FROM feature_cvterm").Should(HaveCount(14))
 }
 
 func runRegularGpadImpl(dbh *sqlx.DB, section string, expected int) {
