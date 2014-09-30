@@ -104,7 +104,20 @@ func (sqlite *Sqlite) MarkUpdatable() {
 }
 
 func (sqlite *Sqlite) RunBulkUpdates() {
-
+	p := sqlite.sqlparser
+	dbh := sqlite.dbh
+	// Refresh the values of all updated gpad entries
+	// Extra references
+	dbh.MustExec(p.GetSection("insert_feature_cvterm_pub_reference"), 1)
+	//sections := []string{
+	//"insert_feature_cvtermprop_qualifier",
+	//"insert_feature_cvtermprop_date",
+	//"insert_feature_cvtermprop_assigned_by",
+	//"insert_feature_cvtermprop_withfrom",
+	//}
+	//for _, s := range sections {
+	//dbh.MustExec(p.GetSection(s), sqlite.ontology, 1)
+	//}
 }
 
 func (sqlite *Sqlite) RunBulkInserts() {

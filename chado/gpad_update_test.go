@@ -54,6 +54,28 @@ func TestGpadUpdateSqlite(t *testing.T) {
 	// Run bulk insert again to insert new record
 	sqlite.RunBulkInserts()
 	Expect("SELECT COUNT(*) FROM feature_cvterm").Should(HaveCount(14))
+
+	//check for rest of the counts
+	tbl2 := map[string]int{
+		"qualifier": 10,
+		"with":      2,
+		"date":      14,
+		"source":    14,
+		"pub":       1,
+	}
+	runCvtImplExplCounts(dbh, ont, tbl2)
+
+	// Now the bulk update
+	sqlite.RunBulkUpdates()
+	//check for counts
+	tbl2 = map[string]int{
+		//"qualifier": 14,
+		//"with":      7,
+		//"date":      14,
+		//"source":    14,
+		"pub": 3,
+	}
+	runCvtImplExplCounts(dbh, ont, tbl2)
 }
 
 func runRegularGpadImpl(dbh *sqlx.DB, section string, expected int) {
@@ -69,4 +91,30 @@ func runRegularGpadExpl(dbh *sqlx.DB, section string, expected int, cv string) {
 	rc, err := res.RowsAffected()
 	Expect(err).ShouldNot(HaveOccurred())
 	Expect(int(rc)).Should(Equal(expected))
+}
+
+func runCvtImplExplCounts(dbh *sqlx.DB, ont string, tbl map[string]int) {
+	q := `
+SELECT COUNT(*) FROM feature_cvtermprop
+WHERE type_id = (
+SELECT cvterm_id FROM cvterm
+JOIN cv ON cv.cv_id = cvterm.cv_id
+WHERE cv.name = $1
+AND cvterm.name = $2
+)
+`
+	for _, term := range []string{"qualifier", "date", "source", "with"} {
+		if _, ok := tbl[term]; ok {
+			var ct int
+			err := dbh.QueryRowx(q, ont, term).Scan(&ct)
+			Expect(err).ShouldNot(HaveOccurred())
+			Expect(ct).Should(Equal(tbl[term]))
+		}
+	}
+	if _, ok := tbl["pub"]; ok {
+		var ct int
+		err := dbh.QueryRowx("SELECT COUNT(*) FROM feature_cvterm_pub").Scan(&ct)
+		Expect(err).ShouldNot(HaveOccurred())
+		Expect(ct).Should(Equal(tbl["pub"]))
+	}
 }
