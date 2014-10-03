@@ -109,15 +109,27 @@ func (sqlite *Sqlite) RunBulkUpdates() {
 	// Refresh the values of all updated gpad entries
 	// Extra references
 	dbh.MustExec(p.GetSection("insert_feature_cvterm_pub_reference"), 1)
-	//sections := []string{
-	//"insert_feature_cvtermprop_qualifier",
-	//"insert_feature_cvtermprop_date",
-	//"insert_feature_cvtermprop_assigned_by",
-	//"insert_feature_cvtermprop_withfrom",
-	//}
-	//for _, s := range sections {
-	//dbh.MustExec(p.GetSection(s), sqlite.ontology, 1)
-	//}
+	sections := []string{
+		"insert_feature_cvtermprop_qualifier",
+		"insert_feature_cvtermprop_withfrom",
+	}
+	for _, s := range sections {
+		dbh.MustExec(p.GetSection(s), sqlite.ontology, 1)
+	}
+
+	// Now update the date fields
+	type date struct {
+		Id   int    `db:"feature_cvterm_id"`
+		Date string `db:"date_curated"`
+	}
+	gpd := []date{}
+	err := dbh.Select(&gpd, p.GetSection("select_updated_gpad_date"))
+	if err != nil {
+		log.Fatal(err)
+	}
+	for _, d := range gpd {
+		dbh.MustExec(p.GetSection("update_feature_cvtermprop_date"), d.Date, sqlite.ontology, d.Id)
+	}
 }
 
 func (sqlite *Sqlite) RunBulkInserts() {
