@@ -134,6 +134,7 @@ func (sqlite *Sqlite) RunBulkUpdates() {
 
 func (sqlite *Sqlite) RunBulkInserts() {
 	sqlite.createAnonCvterms()
+	sqlite.insertAnonRelationships()
 	sqlite.insertExtraIdentifiers()
 	sqlite.insertNonAnonGpad()
 	sqlite.insertAnonFeatCvt()
@@ -218,8 +219,15 @@ func (sqlite *Sqlite) createAnonCvterms() {
 		log.Fatal(err)
 	}
 	for _, a := range an {
-		q := p.GetSection("update_temp_with_anon_cvterm")
-		dbh.MustExec(q, a.Name, a.Digest, a.Id, a.Db, a.Relationship)
+		var ct int
+		err := dbh.QueryRowx(p.GetSection("count_anon_cvterm_from_chado"), sqlite.anonCv, sqlite.anonDb, a.Name).Scan(&ct)
+		if err != nil {
+			log.Fatal(err)
+		}
+		if ct == 0 { // It is a new anon cvterm
+			q := p.GetSection("update_temp_with_anon_cvterm")
+			dbh.MustExec(q, a.Name, a.Digest, a.Id, a.Db, a.Relationship)
+		}
 	}
 	dbh.MustExec(p.GetSection("insert_anon_cvterm_in_dbxref"), sqlite.anonDb)
 	dbh.MustExec(p.GetSection("insert_anon_cvterm"), sqlite.anonCv, sqlite.anonDb)
