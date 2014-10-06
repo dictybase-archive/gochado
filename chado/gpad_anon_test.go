@@ -41,8 +41,13 @@ func TestAnonCvtChadoSqlite(t *testing.T) {
 	Expect(err).ShouldNot(HaveOccurred())
 	Expect(an).Should(HaveLen(3))
 	for _, a := range an {
+		var ct int
+		// check if the record already exist
+		err := dbh.QueryRowx(p.GetSection("count_anon_cvterm_from_chado"), acv, "dictyBase", a.Name).Scan(&ct)
+		Expect(err).ShouldNot(HaveOccurred())
+		Expect(ct).Should(Equal(0))
 		q := p.GetSection("update_temp_with_anon_cvterm")
-		_, err := dbh.Exec(q, a.Name, a.Digest, a.Id, a.Db, a.Relationship)
+		_, err = dbh.Exec(q, a.Name, a.Digest, a.Id, a.Db, a.Relationship)
 		Expect(err).ShouldNot(HaveOccurred())
 	}
 	// insert anon cvterms in chado

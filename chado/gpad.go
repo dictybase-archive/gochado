@@ -190,9 +190,9 @@ func (sqlite *Sqlite) insertAnonImplExpl() {
 
 	for _, entry := range tbl {
 		if len(entry) == 2 {
-			dbh.MustExec(p.GetSection(entry[0]), entry[1], 0)
+			dbh.MustExec(p.GetSection(entry[0]), entry[1])
 		} else {
-			dbh.MustExec(p.GetSection(entry[0]), entry[1], entry[2], 0)
+			dbh.MustExec(p.GetSection(entry[0]), entry[1], entry[2])
 		}
 	}
 }
