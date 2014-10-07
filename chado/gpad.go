@@ -70,9 +70,7 @@ func (sqlite *Sqlite) BulkLoad() {
 		// fresh load
 		sqlite.RunBulkInserts()
 	} else {
-		// tag the records in staging that could be updated
-		// these will also includes records with annotation extensions
-		sqlite.MarkUpdatable()
+		sqlite.PrepareForUpdate()
 		// merge load means two steps first insert the new record
 		// then update the existing one
 		sqlite.RunBulkInserts()
@@ -80,7 +78,12 @@ func (sqlite *Sqlite) BulkLoad() {
 	}
 }
 
-func (sqlite *Sqlite) MarkUpdatable() {
+// Tag the records in staging that could be updated
+// these will also includes records with annotation extensions
+// Also removes all qualifier, withfrom and additional references for those
+// updated records. Those values will be reloaded(along with new values if any)
+// during the RunBulkUpdates() method call.
+func (sqlite *Sqlite) PrepareForUpdate() {
 	p := sqlite.sqlparser
 	dbh := sqlite.dbh
 	gp := []gpad{}
@@ -103,6 +106,10 @@ func (sqlite *Sqlite) MarkUpdatable() {
 	}
 }
 
+// Reloads the qualifier, withfrom and additional references for updated records that
+// was removed during the PrepareForUpdate() method.
+// Also loads new withfrom, qualifier and additional references if any for those updated
+// records.
 func (sqlite *Sqlite) RunBulkUpdates() {
 	p := sqlite.sqlparser
 	dbh := sqlite.dbh
@@ -132,6 +139,16 @@ func (sqlite *Sqlite) RunBulkUpdates() {
 	}
 }
 
+// Loads new entries. This includes creating anonymous cvterms for entries with
+// with annotation extension column. Since annotation extension for updated
+// and new entries involves creation of anonymous cvterm, the bulk insert
+// method works for both of them. Here in short is the workflow ..
+//  - Create extra identifers for annotation extensions with database identifers
+//  - Create anonymous cvterm
+//  - Create cvterm relationships with anonymous cvterm
+//  - Insert new entries without annotation extensions.
+//  - Links anonymous cvterm with feature and add rest of the
+//    values(evidence code, date, source, qualifier etc).
 func (sqlite *Sqlite) RunBulkInserts() {
 	sqlite.insertExtraIdentifiers()
 	sqlite.createAnonCvterms()
