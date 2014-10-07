@@ -8,12 +8,6 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-const (
-	ont = "gene_ontology_association"
-	acv = "annotation extension terms"
-	adb = "dictyBase"
-)
-
 func TestGpadUpdateSqlite(t *testing.T) {
 	RegisterTestingT(t)
 	//Setup

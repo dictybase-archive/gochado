@@ -13,6 +13,12 @@ import (
 	"github.com/jmoiron/sqlx"
 )
 
+const (
+	ont = "gene_ontology_association"
+	acv = "annotation extension terms"
+	adb = "dictyBase"
+)
+
 type chadoTest struct {
 	rice   *rice.Box
 	chado  *testchado.Sqlite

@@ -62,7 +62,7 @@ func (sqlite *Sqlite) BulkLoad() {
 	// Now check if its a fresh load or a merge load
 	var count int
 	// Count all gpads including those linked with anon cvterms
-	err := dbh.QueryRowx(p.GetSection("count_all_gpads_from_chado"), sqlite.anonCv, sqlite.ontology).Scan(&count)
+	err := dbh.QueryRowx(p.GetSection("count_all_gpads_from_chado"), sqlite.ontology, sqlite.anonCv, sqlite.ontology).Scan(&count)
 	if err != nil {
 		log.Fatal(err)
 	}
