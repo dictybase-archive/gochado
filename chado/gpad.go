@@ -104,6 +104,11 @@ func (sqlite *Sqlite) PrepareForUpdate() {
 			dbh.MustExec(p.GetSection("update_temp_gpad_new_by_checksum"), mds)
 		}
 	}
+
+	// remove values that will be picked up during bulk updates
+	dbh.Exec(p.GetSection("delete_feature_cvtermprop_qualifier"), sqlite.ontology)
+	dbh.MustExec(p.GetSection("delete_feature_cvtermprop_withfrom"), sqlite.ontology)
+	dbh.MustExec(p.GetSection("delete_feature_cvterm_pub"))
 }
 
 // Reloads the qualifier, withfrom and additional references for updated records that

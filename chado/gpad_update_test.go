@@ -34,7 +34,7 @@ func TestGpadUpdateSqlite(t *testing.T) {
 	// Get the second set of changed(new/updated) entries in another staging tables
 	dbh.MustExec(p.GetSection("insert_latest_goa_from_staging"), ont)
 	// Tag the updatable records
-	sqlite.MarkUpdatable()
+	sqlite.PrepareForUpdate()
 
 	// Total entries that will be transfered to chado
 	Expect("SELECT COUNT(*) FROM temp_gpad_new").Should(HaveCount(7))
@@ -43,14 +43,13 @@ func TestGpadUpdateSqlite(t *testing.T) {
 	// Check the number of updatable entries
 	Expect("SELECT COUNT(*) FROM temp_gpad_new WHERE is_update = 1").Should(HaveCount(6))
 
+	// check count after deletion through PrepareForUpdate()
 	tbl := map[string]int{
-		"delete_feature_cvtermprop_qualifier": 4,
-		"delete_feature_cvtermprop_withfrom":  4,
+		"qualifier": 9,
+		"with":      2,
+		"pub":       1,
 	}
-	for k, v := range tbl {
-		runRegularGpadExpl(dbh, p.GetSection(k), v, ont)
-	}
-	runRegularGpadImpl(dbh, p.GetSection("delete_feature_cvterm_pub"), 0)
+	runCvtImplExplCounts(dbh, ont, tbl)
 
 	// Run bulk insert again to insert new record(s)
 	sqlite.RunBulkInserts()
@@ -71,7 +70,7 @@ func TestGpadUpdateSqlite(t *testing.T) {
 
 	// Now the bulk update
 	sqlite.RunBulkUpdates()
-	////check for counts
+	//check for counts
 	tbl3 := map[string]int{
 		"qualifier": 18,
 		"with":      8,
