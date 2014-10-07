@@ -1,0 +1,14 @@
+!gpa-version: 1.1
+dictyBase	DDB_G0272003	enables	GO:0001614	GO_REF:0000002|GO_REF:0000033	ECO:0000256	InterPro:IPR001429|InterPro:IPR001245		20140229	InterPro		go_evidence=IEA
+dictyBase	DDB_G0272004	enables	GO:0001614	GO_REF:0000033	ECO:0000318	PANTHER:PTN000012953		20140221	RefGenome		go_evidence=IBA
+dictyBase	DDB_G0272004	involved_in	GO:0006971	GO_REF:0000002	ECO:0000316	UniProtKB:Q54J33		20100312	dictyBase		go_evidence=IGI
+dictyBase	DDB_G0272004	involved_in	GO:0006971	GO_REF:0000002	ECO:0000012	UniProtKB:Q54JH4|UniProtKB:P10620		20100411	dictyBase		go_evidence=IGI
+dictyBase	DDB_G0271142	enables|contributes_to	GO:0003779	GO_REF:0000037|GO_REF:0000002	ECO:0000322	UniProtKB-KW:KW-0009|UniProtKB:P08011		20140530	UniProt		go_evidence=IEA
+dictyBase	DDB_G0271142	part_of|colocalizes_with	GO:0005938	GO_REF:0000002	ECO:0000314			20070718	dictyBase		go_evidence=IDA
+dictyBase	DDB_G0292036	part_of	GO:0005615	GO_REF:0000002	ECO:0000245			20131010	dictyBase		go_evidence=RCA
+dictyBase	DDB_G0292036	part_of	GO:0005829	GO_REF:0000002	ECO:0000314			20131010	dictyBase		go_evidence=IDA
+dictyBase	DDB_G0292036	involved_in	GO:0061122	GO_REF:0000033	ECO:0000315			20140810	dictyBase		go_evidence=IMP|id=2113681940|curator_name=Petra Fey
+dictyBase	DDB_G0271142	part_of	GO:0015629	GO_REF:0000002	ECO:0000304			20050304	dictyBase		go_evidence=TAS
+dictyBase	DDB_G0278727	involved_in	GO:0031152	GO_REF:0000002|GO_REF:0000033	ECO:0000304			20050207	dictyBase		go_evidence=TAS
+dictyBase	DDB_G0286189	colocalizes_with	GO:0005829	GO_REF:0000002	ECO:0000314			20140601	dictyBase	exists_during(GO:0071320)|has_direct_input(UniProtKB:P36873)	go_evidence=IDA|id=2113486029|curator_name=Petra Fey
+dictyBase	DDB_G0285321	involved_in	GO:0007260	PMID:22699506	ECO:0000315			20140727	dictyBase	has_regulation_target(UniProtKB:Q54BD4)|in_presence_of(CHEBI:64672)|part_of(GO:0005634)	go_evidence=IMP|id=2113680965|curator_name=Bob Dodson

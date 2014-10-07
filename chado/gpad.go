@@ -56,44 +56,108 @@ func (sqlite *Sqlite) BulkLoad() {
 
 	// -- Inserting new records
 	// First get latest GAF records in another staging table
+	// The records with their date field updated will be transfered
 	dbh.MustExec(p.GetSection("insert_latest_goa_from_staging"), sqlite.ontology)
 
 	// Now check if its a fresh load or a merge load
 	var count int
-	err := dbh.QueryRowx(p.GetSection("count_all_gpads_from_chado"), sqlite.ontology).Scan(&count)
+	// Count all gpads including those linked with anon cvterms
+	err := dbh.QueryRowx(p.GetSection("count_all_gpads_from_chado"), sqlite.ontology, sqlite.anonCv, sqlite.ontology).Scan(&count)
 	if err != nil {
 		log.Fatal(err)
 	}
 	if count == 0 {
 		// fresh load
-		sqlite.runBulkInserts()
+		sqlite.RunBulkInserts()
 	} else {
+		sqlite.PrepareForUpdate()
 		// merge load means two steps first insert the new record
 		// then update the existing one
-		gp := []gpad{}
-		err := dbh.Select(&gp, p.GetSection("select_all_gpads_from_chado"), sqlite.ontology)
-		if err != nil {
-			log.Fatal(err)
-		}
-		for _, rec := range gp {
-			mds := gochado.GetMD5Hash(rec.DbId + rec.GoId + rec.Evcode + rec.AssignedBy)
-			var ct int
-			err := dbh.QueryRowx(p.GetSection("count_temp_gpad_new_by_checksum"), mds).Scan(&ct)
-			if err != nil {
-				log.Fatal(err)
-			}
-			if ct > 0 {
-				// record exist, mark for update step
-				dbh.MustExec(p.GetSection("update_temp_gpad_new_by_checksum"), mds)
-			}
-		}
-		sqlite.runBulkInserts()
+		sqlite.RunBulkInserts()
+		sqlite.RunBulkUpdates()
 	}
 }
 
-func (sqlite *Sqlite) runBulkInserts() {
+// Tag the records in staging that could be updated
+// these will also includes records with annotation extensions
+// Also removes all qualifier, withfrom and additional references for those
+// updated records. Those values will be reloaded(along with new values if any)
+// during the RunBulkUpdates() method call.
+func (sqlite *Sqlite) PrepareForUpdate() {
+	p := sqlite.sqlparser
+	dbh := sqlite.dbh
+	gp := []gpad{}
+	err := dbh.Select(&gp, p.GetSection("select_all_gpads_from_chado"), sqlite.ontology, sqlite.anonCv, sqlite.ontology)
+	if err != nil {
+		log.Fatal(err)
+	}
+	for _, rec := range gp {
+		mds := gochado.GetMD5Hash(rec.DbId + rec.GoId + rec.Evcode + rec.AssignedBy)
+		var ct int
+		// check if the record is new or is an update
+		err := dbh.QueryRowx(p.GetSection("count_temp_gpad_new_by_checksum"), mds).Scan(&ct)
+		if err != nil {
+			log.Fatal(err)
+		}
+		if ct > 0 {
+			// record exist, mark for update step
+			dbh.MustExec(p.GetSection("update_temp_gpad_new_by_checksum"), mds)
+		}
+	}
+
+	// remove values that will be picked up during bulk updates
+	dbh.Exec(p.GetSection("delete_feature_cvtermprop_qualifier"), sqlite.ontology)
+	dbh.MustExec(p.GetSection("delete_feature_cvtermprop_withfrom"), sqlite.ontology)
+	dbh.MustExec(p.GetSection("delete_feature_cvterm_pub"))
+}
+
+// Reloads the qualifier, withfrom and additional references for updated records that
+// was removed during the PrepareForUpdate() method.
+// Also loads new withfrom, qualifier and additional references if any for those updated
+// records.
+func (sqlite *Sqlite) RunBulkUpdates() {
+	p := sqlite.sqlparser
+	dbh := sqlite.dbh
+	// Refresh the values of all updated gpad entries
+	// Extra references
+	dbh.MustExec(p.GetSection("insert_feature_cvterm_pub_reference"), 1)
+	sections := []string{
+		"insert_feature_cvtermprop_qualifier",
+		"insert_feature_cvtermprop_withfrom",
+	}
+	for _, s := range sections {
+		dbh.MustExec(p.GetSection(s), sqlite.ontology, 1)
+	}
+
+	// Now update the date fields
+	type date struct {
+		Id   int    `db:"feature_cvterm_id"`
+		Date string `db:"date_curated"`
+	}
+	gpd := []date{}
+	err := dbh.Select(&gpd, p.GetSection("select_updated_gpad_date"))
+	if err != nil {
+		log.Fatal(err)
+	}
+	for _, d := range gpd {
+		dbh.MustExec(p.GetSection("update_feature_cvtermprop_date"), d.Date, sqlite.ontology, d.Id)
+	}
+}
+
+// Loads new entries. This includes creating anonymous cvterms for entries with
+// with annotation extension column. Since annotation extension for updated
+// and new entries involves creation of anonymous cvterm, the bulk insert
+// method works for both of them. Here in short is the workflow ..
+//  - Create extra identifers for annotation extensions with database identifers
+//  - Create anonymous cvterm
+//  - Create cvterm relationships with anonymous cvterm
+//  - Insert new entries without annotation extensions.
+//  - Links anonymous cvterm with feature and add rest of the
+//    values(evidence code, date, source, qualifier etc).
+func (sqlite *Sqlite) RunBulkInserts() {
+	sqlite.insertExtraIdentifiers()
 	sqlite.createAnonCvterms()
-	sqlite.insertExtraIdenfiers()
+	sqlite.insertAnonRelationships()
 	sqlite.insertNonAnonGpad()
 	sqlite.insertAnonFeatCvt()
 	sqlite.insertAnonImplExpl()
@@ -101,7 +165,7 @@ func (sqlite *Sqlite) runBulkInserts() {
 
 // insert database/sequence identifers that comes in the identifier
 // part of annotation extensions
-func (sqlite *Sqlite) insertExtraIdenfiers() {
+func (sqlite *Sqlite) insertExtraIdentifiers() {
 	p := sqlite.sqlparser
 	dbh := sqlite.dbh
 	dbh.MustExec(p.GetSection("insert_anon_cvterm_db_identifier"))
@@ -112,16 +176,16 @@ func (sqlite *Sqlite) insertAnonCvprop() {
 	sqlite.dbh.MustExec(sqlite.sqlparser.GetSection("insert_anon_cvtermprop_extension"), sqlite.anonCv)
 }
 
-//insert all gpad entries expect the extensions
+//insert all gpad entries expect the ones with extensions
 func (sqlite *Sqlite) insertNonAnonGpad() {
 	p := sqlite.sqlparser
 	dbh := sqlite.dbh
 	// Now fill up the feature_cvterm
 	dbh.MustExec(p.GetSection("insert_feature_cvterm"))
 	// Evidence code
-	dbh.MustExec(p.GetSection("insert_feature_cvtermprop_evcode"))
+	dbh.MustExec(p.GetSection("insert_feature_cvtermprop_evcode"), 0)
 	// Extra references
-	dbh.MustExec(p.GetSection("insert_feature_cvterm_pub_reference"))
+	dbh.MustExec(p.GetSection("insert_feature_cvterm_pub_reference"), 0)
 	sections := []string{
 		"insert_feature_cvtermprop_qualifier",
 		"insert_feature_cvtermprop_date",
@@ -129,7 +193,7 @@ func (sqlite *Sqlite) insertNonAnonGpad() {
 		"insert_feature_cvtermprop_withfrom",
 	}
 	for _, s := range sections {
-		dbh.MustExec(p.GetSection(s), sqlite.ontology)
+		dbh.MustExec(p.GetSection(s), sqlite.ontology, 0)
 	}
 }
 
@@ -177,8 +241,15 @@ func (sqlite *Sqlite) createAnonCvterms() {
 		log.Fatal(err)
 	}
 	for _, a := range an {
-		q := p.GetSection("update_temp_with_anon_cvterm")
-		dbh.MustExec(q, a.Name, a.Digest, a.Id, a.Db, a.Relationship)
+		var ct int
+		err := dbh.QueryRowx(p.GetSection("count_anon_cvterm_from_chado"), sqlite.anonCv, sqlite.anonDb, a.Name).Scan(&ct)
+		if err != nil {
+			log.Fatal(err)
+		}
+		if ct == 0 { // It is a new anon cvterm
+			q := p.GetSection("update_temp_with_anon_cvterm")
+			dbh.MustExec(q, a.Name, a.Digest, a.Id, a.Db, a.Relationship)
+		}
 	}
 	dbh.MustExec(p.GetSection("insert_anon_cvterm_in_dbxref"), sqlite.anonDb)
 	dbh.MustExec(p.GetSection("insert_anon_cvterm"), sqlite.anonCv, sqlite.anonDb)

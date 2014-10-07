@@ -17,8 +17,6 @@ func TestAnonCvtChadoSqlite(t *testing.T) {
 	setup := setUpSqliteTest()
 	chado := setup.chado
 	p := setup.parser
-	ont := "gene_ontology_association"
-	acv := "annotation extension terms"
 	dbh := chado.DBHandle()
 	//Teardown
 	defer chado.DropSchema()
@@ -41,8 +39,13 @@ func TestAnonCvtChadoSqlite(t *testing.T) {
 	Expect(err).ShouldNot(HaveOccurred())
 	Expect(an).Should(HaveLen(3))
 	for _, a := range an {
+		var ct int
+		// check if the record already exist
+		err := dbh.QueryRowx(p.GetSection("count_anon_cvterm_from_chado"), acv, "dictyBase", a.Name).Scan(&ct)
+		Expect(err).ShouldNot(HaveOccurred())
+		Expect(ct).Should(Equal(0))
 		q := p.GetSection("update_temp_with_anon_cvterm")
-		_, err := dbh.Exec(q, a.Name, a.Digest, a.Id, a.Db, a.Relationship)
+		_, err = dbh.Exec(q, a.Name, a.Digest, a.Id, a.Db, a.Relationship)
 		Expect(err).ShouldNot(HaveOccurred())
 	}
 	// insert anon cvterms in chado
@@ -121,9 +124,9 @@ func doRegularGpadInserts(dbh *sqlx.DB, p *gochado.SqlParser, ont string) {
 	// Now fill up the feature_cvterm
 	dbh.MustExec(p.GetSection("insert_feature_cvterm"))
 	// Evidence code
-	dbh.MustExec(p.GetSection("insert_feature_cvtermprop_evcode"))
+	dbh.MustExec(p.GetSection("insert_feature_cvtermprop_evcode"), 0)
 	// Extra references
-	dbh.MustExec(p.GetSection("insert_feature_cvterm_pub_reference"))
+	dbh.MustExec(p.GetSection("insert_feature_cvterm_pub_reference"), 0)
 	sections := []string{
 		"feature_cvtermprop_qualifier",
 		"feature_cvtermprop_date",
@@ -132,7 +135,7 @@ func doRegularGpadInserts(dbh *sqlx.DB, p *gochado.SqlParser, ont string) {
 	}
 	for _, s := range sections {
 		s = "insert_" + s
-		dbh.MustExec(p.GetSection(s)+";", ont)
+		dbh.MustExec(p.GetSection(s)+";", ont, 0)
 	}
 }
 

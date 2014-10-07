@@ -60,7 +60,7 @@ func TestGpadFixtureLoader(t *testing.T) {
 		log.Fatal(err)
 	}
 	goterms := f.LoadGoIds(goids)
-	Expect(goterms).Should(HaveLen(10), "expected 10 goterms")
+	Expect(goterms).Should(HaveLen(12), "expected 12 goterms")
 
 	gorm := f.gorm
 	dbxref := Dbxref{}
@@ -89,9 +89,9 @@ func TestGpadFixtureLoader(t *testing.T) {
 	if err != nil {
 		log.Fatal(err)
 	}
-	Expect(cvtslice).Should(HaveLen(3))
+	Expect(cvtslice).Should(HaveLen(5))
 	exterms := f.LoadCvterms(cvtslice)
-	Expect(exterms).Should(HaveLen(3))
+	Expect(exterms).Should(HaveLen(5))
 	for i, cvt := range exterms {
 		Expect(cvt.Name).Should(Equal(cvtslice[i]["cvterm"]))
 	}

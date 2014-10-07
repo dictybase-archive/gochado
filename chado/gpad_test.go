@@ -13,11 +13,9 @@ func TestGpadChadoSqlite(t *testing.T) {
 	setup := setUpSqliteTest()
 	chado := setup.chado
 	p := setup.parser
-	ont := "gene_ontology_association"
+	dbh := chado.DBHandle()
 	//Teardown
 	defer chado.DropSchema()
-
-	dbh := chado.DBHandle()
 
 	//check for all changed gpad records
 	_, err := dbh.Exec(p.GetSection("insert_latest_goa_from_staging"), ont)
@@ -26,7 +24,7 @@ func TestGpadChadoSqlite(t *testing.T) {
 
 	//check for gpad count in chado
 	var count int
-	err = dbh.QueryRowx(p.GetSection("count_all_gpads_from_chado"), ont).Scan(&count)
+	err = dbh.QueryRowx(p.GetSection("count_all_gpads_from_chado"), ont, acv, ont).Scan(&count)
 	Expect(err).ShouldNot(HaveOccurred())
 	Expect(count).Should(Equal(0))
 	type gpad struct {
@@ -36,15 +34,18 @@ func TestGpadChadoSqlite(t *testing.T) {
 		AssignedBy string `db:"value"`
 	}
 	gp := []gpad{}
-	err = dbh.Select(&gp, p.GetSection("select_all_gpads_from_chado"), ont)
+	err = dbh.Select(&gp, p.GetSection("select_all_gpads_from_chado"), ont, acv, ont)
 	Expect(err).ShouldNot(HaveOccurred())
 	Expect(gp).Should(HaveLen(0))
 
 	//insert new records
 	dbh.MustExec(p.GetSection("insert_feature_cvterm"))
 	Expect("SELECT COUNT(*) FROM feature_cvterm").Should(HaveCount(10))
-	dbh.MustExec(p.GetSection("insert_feature_cvtermprop_evcode"))
-	Expect("SELECT COUNT(*) FROM feature_cvtermprop").Should(HaveCount(10))
+	dbh.MustExec(p.GetSection("insert_feature_cvtermprop_evcode"), 0)
+	var ct int
+	err = dbh.QueryRowx("SELECT COUNT(*) FROM feature_cvtermprop").Scan(&ct)
+	Expect(err).ShouldNot(HaveOccurred())
+	Expect(ct).Should(Equal(10))
 
 	q := `
 	SELECT COUNT(*) FROM feature_cvtermprop
@@ -58,23 +59,23 @@ func TestGpadChadoSqlite(t *testing.T) {
 	m := make(map[string]interface{})
 	m["params"] = append(make([]interface{}, 0), "qualifier")
 	m["count"] = 10
-	dbh.MustExec(p.GetSection("insert_feature_cvtermprop_qualifier"), ont)
+	dbh.MustExec(p.GetSection("insert_feature_cvtermprop_qualifier"), ont, 0)
 	Expect(q).Should(HaveNameCount(m))
 
 	m["params"] = append(make([]interface{}, 0), "date")
-	dbh.MustExec(p.GetSection("insert_feature_cvtermprop_date"), ont)
+	dbh.MustExec(p.GetSection("insert_feature_cvtermprop_date"), ont, 0)
 	Expect(q).Should(HaveNameCount(m))
 
 	m["params"] = append(make([]interface{}, 0), "source")
-	dbh.MustExec(p.GetSection("insert_feature_cvtermprop_assigned_by"), ont)
+	dbh.MustExec(p.GetSection("insert_feature_cvtermprop_assigned_by"), ont, 0)
 	Expect(q).Should(HaveNameCount(m))
 
 	m["params"] = append(make([]interface{}, 0), "with")
 	m["count"] = 6
-	dbh.MustExec(p.GetSection("insert_feature_cvtermprop_withfrom"), ont)
+	dbh.MustExec(p.GetSection("insert_feature_cvtermprop_withfrom"), ont, 0)
 	Expect(q).Should(HaveNameCount(m))
 
-	dbh.MustExec(p.GetSection("insert_feature_cvterm_pub_reference"))
+	dbh.MustExec(p.GetSection("insert_feature_cvterm_pub_reference"), 0)
 	Expect("SELECT COUNT(*) FROM feature_cvterm_pub").Should(HaveCount(1))
 }
 
@@ -84,9 +85,6 @@ func TestGpadChadoSqliteBulk(t *testing.T) {
 	setup := setUpSqliteTest()
 	chado := setup.chado
 	dbh := chado.DBHandle()
-	ont := "gene_ontology_association"
-	acv := "annotation extension terms"
-	adb := "dictyBase"
 	//Teardown
 	defer chado.DropSchema()
 
