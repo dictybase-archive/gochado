@@ -57,46 +57,46 @@ func TestGpadUpdateSqlite(t *testing.T) {
 	var ct int
 	err := dbh.QueryRowx("SELECT COUNT(*) FROM feature_cvterm").Scan(&ct)
 	Expect(err).ShouldNot(HaveOccurred())
-	Expect(ct).Should(Equal(15))
+	Expect(ct).Should(Equal(16))
 
 	//check for rest of the counts
 	tbl2 := map[string]int{
-		//"qualifier": 12,
-		"with": 2,
-		"date": 16,
-		//"source":    16,
-		//"pub":       1,
+		"qualifier": 12,
+		"with":      2,
+		"date":      16,
+		"source":    16,
+		"pub":       1,
 	}
 	runCvtImplExplCounts(dbh, ont, tbl2)
 
 	// Now the bulk update
-	//sqlite.RunBulkUpdates()
+	sqlite.RunBulkUpdates()
 	////check for counts
-	//tbl3 := map[string]int{
-	//"qualifier": 16,
-	//"with":      8,
-	//"date":      14,
-	//"source":    14,
-	//"pub":       3,
-	//}
-	//runCvtImplExplCounts(dbh, ont, tbl3)
+	tbl3 := map[string]int{
+		"qualifier": 18,
+		"with":      8,
+		"date":      16,
+		"source":    16,
+		"pub":       3,
+	}
+	runCvtImplExplCounts(dbh, ont, tbl3)
 	// check for updating the date field
-	//dq := `
-	//SELECT fcvprop.value FROM feature_cvtermprop fcvprop
-	//JOIN feature_cvterm fcvt ON
-	//fcvt.feature_cvterm_id = fcvprop.feature_cvterm_id
-	//JOIN feature ON feature.feature_id = fcvt.feature_id
-	//JOIN cvterm ON cvterm.cvterm_id = fcvprop.type_id
-	//JOIN cv ON cv.cv_id = cvterm.cv_id
-	//WHERE feature.uniquename = $1
-	//AND
-	//cvterm.name = 'date'
-	//AND cv.name = $2
-	//`
-	//var dt string
-	//err := dbh.QueryRowx(dq, "DDB_G0272003", ont).Scan(&dt)
-	//Expect(err).ShouldNot(HaveOccurred())
-	//Expect(dt).Should(Equal("20140229"))
+	dq := `
+	SELECT fcvprop.value FROM feature_cvtermprop fcvprop
+	JOIN feature_cvterm fcvt ON
+	fcvt.feature_cvterm_id = fcvprop.feature_cvterm_id
+	JOIN feature ON feature.feature_id = fcvt.feature_id
+	JOIN cvterm ON cvterm.cvterm_id = fcvprop.type_id
+	JOIN cv ON cv.cv_id = cvterm.cv_id
+	WHERE feature.uniquename = $1
+	AND
+	cvterm.name = 'date'
+	AND cv.name = $2
+	`
+	var dt string
+	err = dbh.QueryRowx(dq, "DDB_G0272003", ont).Scan(&dt)
+	Expect(err).ShouldNot(HaveOccurred())
+	Expect(dt).Should(Equal("20140229"))
 }
 
 func runRegularGpadImpl(dbh *sqlx.DB, section string, expected int) {

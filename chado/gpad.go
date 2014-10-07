@@ -133,9 +133,9 @@ func (sqlite *Sqlite) RunBulkUpdates() {
 }
 
 func (sqlite *Sqlite) RunBulkInserts() {
+	sqlite.insertExtraIdentifiers()
 	sqlite.createAnonCvterms()
 	sqlite.insertAnonRelationships()
-	sqlite.insertExtraIdentifiers()
 	sqlite.insertNonAnonGpad()
 	sqlite.insertAnonFeatCvt()
 	sqlite.insertAnonImplExpl()
