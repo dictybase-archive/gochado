@@ -7,12 +7,12 @@
 	"Deps": [
 		{
 			"ImportPath": "bitbucket.org/kardianos/osext",
-			"Comment": "null-9",
-			"Rev": "364fb577de68fb646c4cb39cc0e09c887ee16376"
+			"Comment": "null-15",
+			"Rev": "44140c5fc69ecf1102c5ef451d73cd98ef59b178"
 		},
 		{
 			"ImportPath": "github.com/GeertJohan/go.rice",
-			"Rev": "a4d0b5624c673fef4b517f350272136ced6bb5b1"
+			"Rev": "c31693b288ed678964ec55135f3f5e5355ceb9ac"
 		},
 		{
 			"ImportPath": "github.com/daaku/go.zipexe",
@@ -25,19 +25,20 @@
 		},
 		{
 			"ImportPath": "github.com/jinzhu/gorm",
-			"Rev": "df4a00a945aa2dfb1de210fafec6da4dc02a496d"
+			"Rev": "0aaefebf4fdbd9ab9e8d8ad23b7a585987abdfb9"
 		},
 		{
 			"ImportPath": "github.com/jmoiron/sqlx",
-			"Rev": "570d28b26fada72e69c3cbc32d9de6842c811495"
+			"Comment": "sqlx-v1.0-45-gaa6f196",
+			"Rev": "aa6f196bd82f2024e5f0b5d5e6cf3b21414be8b4"
 		},
 		{
 			"ImportPath": "github.com/lib/pq",
-			"Rev": "9dd136abd24227c7af773a9c32ef7eca53609202"
+			"Rev": "c6325123e6d45115749734a8bc35060ebac74d0e"
 		},
 		{
 			"ImportPath": "github.com/mattn/go-sqlite3",
-			"Rev": "1704ea522da54566fb41576db328ea3c44f702d8"
+			"Rev": "a80c27ba3354e27b4c8dfbbd1165bc253ca7c522"
 		},
 		{
 			"ImportPath": "github.com/olekukonko/tablewriter",
@@ -45,7 +46,8 @@
 		},
 		{
 			"ImportPath": "github.com/onsi/gomega",
-			"Rev": "4699d5a664396173c7d9fcef9e88be297c7bae13"
+			"Comment": "v1.0-17-ga0ee4df",
+			"Rev": "a0ee4df1f2d58a75dd9d74e755615706d68e9ce9"
 		},
 		{
 			"ImportPath": "gopkg.in/dictybase/testchado.v1",
