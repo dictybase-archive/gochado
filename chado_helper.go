@@ -88,8 +88,8 @@ func (dc *DataCache) Clear() {
 // Helper for finding and creating cv, cvterm , db and dbxrefs in chado
 // database.
 type ChadoHelper struct {
-	*Database
-	caches map[string]*DataCache
+	ChadoHandler *sqlx.DB
+	caches       map[string]*DataCache
 }
 
 // Gets a new instance
@@ -98,7 +98,7 @@ func NewChadoHelper(dbh *sqlx.DB) *ChadoHelper {
 	for _, name := range []string{"db", "cv", "cvterm", "dbxref"} {
 		m[name] = NewDataCache()
 	}
-	return &ChadoHelper{&Database{ChadoHandler: dbh}, m}
+	return &ChadoHelper{dbh, m}
 }
 
 // Given a db name returns its primary key identifier. The lookup is done on
@@ -108,7 +108,7 @@ func (helper *ChadoHelper) FindOrCreateDbId(db string) (int, error) {
 	if dbcache.Has(db) {
 		return dbcache.Get(db), nil
 	}
-	sqlx := helper.Database.ChadoHandler
+	sqlx := helper.ChadoHandler
 	q := "SELECT db_id FROM db WHERE name = $1"
 	row := sqlx.QueryRowx(q, db)
 	var dbid int
@@ -145,7 +145,7 @@ func (helper *ChadoHelper) FindOrCreateCvId(cv string) (int, error) {
 	if cvcache.Has(cv) {
 		return cvcache.Get(cv), nil
 	}
-	sqlx := helper.Database.ChadoHandler
+	sqlx := helper.ChadoHandler
 	q := "SELECT cv_id FROM cv WHERE name = $1"
 	row := sqlx.QueryRowx(q, cv)
 	var cvid int
@@ -183,7 +183,7 @@ func (helper *ChadoHelper) FindCvtermId(cv, cvt string) (int, error) {
 	if cvtcache.Has(cvterm) {
 		return cvtcache.Get(cvterm), nil
 	}
-	sqlx := helper.Database.ChadoHandler
+	sqlx := helper.ChadoHandler
 	q := `
     SELECT cvterm_id FROM cvterm JOIN cv ON cv.cv_id = cvterm.cv_id
     WHERE cv.name = $1 AND cvterm.name = $2
@@ -227,7 +227,7 @@ func (helper *ChadoHelper) CreateCvtermId(params map[string]string) (int, error)
 	if v, ok := params["db"]; ok {
 		db = v
 	}
-	sqlx := helper.Database.ChadoHandler
+	sqlx := helper.ChadoHandler
 	//create cvterm
 	dbid, err := helper.FindOrCreateDbId(db)
 	if err != nil {
